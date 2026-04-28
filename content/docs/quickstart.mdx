@@ -3,8 +3,7 @@ title: Quickstart
 description: From zero to a running agent with a durable event log and a verified replay.
 ---
 
-You'll build a single-tool agent, persist its run to SQLite, and verify the
-log replays cleanly. About five minutes if Go is already installed.
+Build a single-tool agent, persist it to SQLite, verify replay.
 
 ## Install
 
@@ -12,8 +11,7 @@ log replays cleanly. About five minutes if Go is already installed.
 go get github.com/jerkeyray/starling
 ```
 
-Requires Go 1.26 or newer. The CGo dependency in the SQLite driver is
-optional: Starling uses `modernc.org/sqlite` so a clean Go install works.
+Go 1.26+. SQLite is pure-Go via `modernc.org/sqlite`; no CGo.
 
 ## Hello agent
 
@@ -65,9 +63,8 @@ func main() {
 }
 ```
 
-`tool.Typed` wraps a typed Go function as a Starling tool. The agent loop
-will dispatch the tool, append a `ToolCallScheduled` and `ToolCallCompleted`
-to the log, and surface the result back to the model.
+`tool.Typed` derives the JSON schema from the input type. The agent
+records `ToolCallScheduled` + `ToolCallCompleted` around every dispatch.
 
 ## Persist the run
 
@@ -88,9 +85,7 @@ a := &starling.Agent{
 }
 ```
 
-`NewSQLite` opens the file in WAL mode, runs schema migrations on first
-open, and returns an `EventLog` ready for concurrent read while one writer
-is active.
+`NewSQLite` opens in WAL mode and auto-migrates. One writer, many readers.
 
 ## Replay the run
 
@@ -116,14 +111,12 @@ is non-deterministic and should be moved behind a `step` helper.
 
 ## Inspect a run
 
-The inspector is an embedded read-only web UI:
-
 ```bash title="terminal"
 go run github.com/jerkeyray/starling/cmd/starling-inspect starling.db
 ```
 
-Open the printed URL. You get a runs list, a per-run timeline, payload
-detail, replay controls, and divergence rendering.
+Embedded read-only web UI: runs list, timeline, payload detail, replay
+controls, divergence rendering.
 
 ## Where to next
 

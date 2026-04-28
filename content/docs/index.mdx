@@ -5,13 +5,10 @@ description: Starling is a Go runtime for building LLM agents where every run is
 
 import { Rocket, Compass, ScrollText, Plug, Wrench, BookOpen } from 'lucide-react';
 
-Starling is a Go runtime for building LLM agents where every run is recorded
-as an append-only, BLAKE3-chained, Merkle-rooted event log. When an agent
-fails in production, you inspect the log, replay it against the same agent
-wiring, and see the exact step where today's behavior diverges.
-
-This site is the canonical entry point. The source lives on
-[GitHub](https://github.com/jerkeyray/starling).
+A Go runtime for building LLM agents where every run is an append-only,
+BLAKE3-chained, Merkle-rooted event log. When an agent fails in production,
+inspect the log, replay it against the same agent wiring, and see the exact
+step where today's behavior diverges.
 
 ## Get started
 
@@ -20,13 +17,13 @@ This site is the canonical entry point. The source lives on
     icon={<Rocket className="text-cyan-500" />}
     title="Quickstart"
     href="/docs/quickstart"
-    description="Hello agent in five minutes. In-memory log, durable SQLite, replay verification."
+    description="Hello agent. In-memory log, durable SQLite, replay verification."
   />
   <Card
     icon={<Compass className="text-emerald-500" />}
     title="Concepts"
     href="/docs/concepts"
-    description="Event log, replay, side effects, the determinism contract. Read this once."
+    description="Event log, replay, side effects, the determinism contract."
   />
 </Cards>
 
@@ -60,6 +57,6 @@ This site is the canonical entry point. The source lives on
     icon={<Wrench className="text-emerald-500" />}
     title="Operations"
     href="/docs/operations"
-    description="Deployment, security, retention, metrics, tracing: what an operator needs."
+    description="Deployment, security, retention, metrics, tracing."
   />
 </Cards>

@@ -3,9 +3,9 @@ title: Concepts
 description: The event log, the determinism contract, replay, side effects, and how Starling thinks about agents.
 ---
 
-Starling treats the event log as the source of truth. The runtime, the
-inspector, and replay verification all read the same shape. Once you accept
-that, every other design choice falls out.
+The event log is the source of truth. The runtime, the inspector, and
+replay all read the same shape. Every other design choice falls out of
+that.
 
 <Mermaid chart={`
 flowchart LR
@@ -68,10 +68,9 @@ val, err := step.SideEffect(ctx, "name", func() (T, error) {
 })
 ```
 
-`step` helpers append a `SideEffectRecorded` event on the live run. Replay
-reads that event and returns the recorded value without invoking the
-closure. This is what makes a run portable: the recording carries every
-non-deterministic value alongside the agent's deterministic logic.
+Live: append a `SideEffectRecorded` event. Replay: read the recorded
+value, skip the closure. The `name` argument is the lookup key — reuse
+it for the same logical effect, change it when the effect changes.
 
 ## Replay
 
@@ -142,20 +141,19 @@ Three event-log implementations:
 - `eventlog.NewPostgres(db)`: multi-host services. Per-run advisory
   locks serialize appenders by run.
 
-All three implement the same `EventLog` interface and the same migration
-contract.
+All three satisfy `EventLog` and share the migration contract.
 
-## What's intentionally out of scope
+## Out of scope
 
-The plan calls these out and Starling doesn't ship them:
+Not shipped, by design:
 
 - Prompt templating language
 - Visual / no-code builder
 - Generic chain or graph DSL
 - Built-in vector database
 - Hosted Starling service
-- Large bundled tool registry in core
+- Large bundled tool registry
 - Built-in memory store
 
-You write Go. The runtime stays small. The plan is to win on a narrow
-wedge: production debugging via replay: not on breadth.
+You write Go. The wedge is production debugging via replay, not
+framework breadth.

@@ -3,8 +3,7 @@ title: Event schema
 description: The 15 event kinds, their payloads, the canonical CBOR wire format, and the invariants the runtime enforces.
 ---
 
-The event log is the source of truth. Every meaningful runtime action
-is an event. This page is the wire-format reference.
+Wire-format reference for the event log.
 
 ## Envelope
 
@@ -51,9 +50,7 @@ Closed set. Adding a kind is a schema-version bump.
 
 ## Payloads
 
-Payloads are CBOR-encoded structs. The full definitions are in
-[`event/types.go`](https://github.com/jerkeyray/starling/blob/main/event/types.go);
-the highlights:
+Payloads are CBOR-encoded structs. The highlights:
 
 ### `RunStarted` (kind 1)
 

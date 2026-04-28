@@ -3,12 +3,11 @@ title: Reference
 description: "Per-package API reference: types, signatures, and short examples for the Starling Go runtime."
 ---
 
-Per-package types, signatures, and short examples. Each section is the
-authoritative reference for that package.
+Per-package types, signatures, and short examples.
 
 ## starling (root)
 
-The root package wires the agent loop, run lifecycle, and replay surface.
+The agent loop, run lifecycle, and replay surface.
 
 ### Agent
 
@@ -24,8 +23,7 @@ type Agent struct {
 }
 ```
 
-`Agent` is configuration plus dependencies. It holds no per-run state;
-all state lives in `Log`. Two `Agent` instances pointing at the same log
+`Agent` holds no per-run state. Two instances pointing at the same log
 are interchangeable.
 
 ### Config
@@ -92,11 +90,6 @@ convenience.
 | `ErrRunInUse`               | Another writer already advanced the chain.                                               |
 | `ErrSchemaVersionMismatch`  | The recording's schema version is unsupported by this binary.                            |
 
-Source: [`agent.go`](https://github.com/jerkeyray/starling/blob/main/agent.go),
-[`config.go`](https://github.com/jerkeyray/starling/blob/main/config.go),
-[`resume.go`](https://github.com/jerkeyray/starling/blob/main/resume.go),
-[`result.go`](https://github.com/jerkeyray/starling/blob/main/result.go).
-
 ## budget
 
 ```go
@@ -118,8 +111,7 @@ Zero on any field disables that axis. Enforcement points:
 | `MaxWallClock`    | `context.WithDeadline` wrapping the run.          |
 
 A trip emits `BudgetExceeded{Limit, Cap, Actual, Where}` and unwinds
-with `RunFailed{ErrorType:"budget"}`. Source:
-[`budget/`](https://github.com/jerkeyray/starling/tree/main/budget).
+with `RunFailed{ErrorType:"budget"}`.
 
 ## event
 
@@ -148,8 +140,6 @@ func ToJSON(ev Event) ([]byte, error)
 
 `event.HashSize` is 32. Each typed payload has an `EncodePayload[T]`
 helper; each kind has a matching accessor (`AsRunStarted`, `AsToolCallCompleted`, …).
-
-Source: [`event/`](https://github.com/jerkeyray/starling/tree/main/event).
 
 ## eventlog
 
@@ -209,8 +199,6 @@ mismatch between the database and the binary. `Agent.Run`,
 
 `ErrLogClosed`, `ErrLogCorrupt`, `ErrInvalidAppend`, `ErrReadOnly`,
 `ErrSchemaOutdated`, `ErrSchemaTooNew`.
-
-Source: [`eventlog/`](https://github.com/jerkeyray/starling/tree/main/eventlog).
 
 ## step
 
@@ -284,8 +272,6 @@ var (
 `errors.Is`, extract structured fields with `errors.As`. The replay
 package lifts these into `replay.Divergence` (next section).
 
-Source: [`step/`](https://github.com/jerkeyray/starling/tree/main/step).
-
 ## tool
 
 ```go
@@ -324,11 +310,8 @@ so replay never re-contacts the server. Full options table on the
 
 ### Built-in tools
 
-`tool/builtin/` ships HTTP-fetch and read-file references. Use them
-directly or as templates.
-
-Source: [`tool/`](https://github.com/jerkeyray/starling/tree/main/tool),
-[`tool/mcp/`](https://github.com/jerkeyray/starling/tree/main/tool/mcp).
+`tool/builtin/` ships `Fetch()` (15s timeout, 1 MiB cap) and
+`ReadFile(baseDir)` (path-escape rejection). Use directly or as templates.
 
 ## provider
 
@@ -376,8 +359,6 @@ Each adapter advertises its support set via
 `provider.Capabler.Capabilities()`. The conformance suite skips
 capability-gated assertions when the adapter reports `false`.
 
-Source: [`provider/`](https://github.com/jerkeyray/starling/tree/main/provider).
-
 ## replay
 
 ```go
@@ -408,8 +389,6 @@ event so the UI can render recorded vs produced side-by-side. The final
 step has `Diverged: true` when the replay didn't reach the recorded
 terminal.
 
-Source: [`replay/`](https://github.com/jerkeyray/starling/tree/main/replay).
-
 ## inspect
 
 Embedded HTTP handler that serves the runs list, per-run timeline,
@@ -428,9 +407,6 @@ Read-only by construction, CSRF-protected on the two replay POST
 endpoints, bearer-token via `Authenticator`. Front it with TLS in
 production: see the [Operations](/docs/operations) page.
 
-Source: [`inspect/`](https://github.com/jerkeyray/starling/tree/main/inspect),
-[`cmd/starling-inspect/`](https://github.com/jerkeyray/starling/tree/main/cmd/starling-inspect).
-
 ## CLI (`cmd/starling`)
 
 ```bash
@@ -446,11 +422,9 @@ The stock binary is SQLite-only. Building a dual-mode binary that
 links your agent factory enables `starling replay` and
 `starling inspect` with replay re-execution.
 
-Source: [`cmd/starling/`](https://github.com/jerkeyray/starling/tree/main/cmd/starling).
-
 ## Examples
 
-| Path                                    | What it shows                                                                            |
-|-----------------------------------------|------------------------------------------------------------------------------------------|
-| [`examples/m1_hello`](https://github.com/jerkeyray/starling/tree/main/examples/m1_hello)             | Minimal hello agent, dual-mode inspector, OTel stdout exporter.        |
-| [`examples/incident_triage`](https://github.com/jerkeyray/starling/tree/main/examples/incident_triage) | Multi-tool agent, budgets, Resume, replay regression test, Postgres support, Prometheus, OpenTelemetry. |
+| Path                       | What it shows                                                                            |
+|----------------------------|------------------------------------------------------------------------------------------|
+| `examples/m1_hello`        | Minimal hello agent, dual-mode inspector, OTel stdout exporter.                          |
+| `examples/incident_triage` | Multi-tool agent, budgets, Resume, replay regression test, Postgres, Prometheus, OTel.   |
