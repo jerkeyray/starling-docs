@@ -1,6 +1,12 @@
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { baseOptions } from '@/lib/layout.shared';
+import { homeOptions } from '@/lib/layout.shared';
 
 export default function Layout({ children }: LayoutProps<'/'>) {
-  return <HomeLayout {...baseOptions()}>{children}</HomeLayout>;
+  // Force the landing into dark mode regardless of user theme.
+  // The .dark class scopes Fumadocs' CSS variables to this subtree.
+  return (
+    <div className="dark bg-fd-background">
+      <HomeLayout {...homeOptions()}>{children}</HomeLayout>
+    </div>
+  );
 }

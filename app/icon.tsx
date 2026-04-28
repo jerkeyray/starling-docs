@@ -11,39 +11,17 @@ export default function Icon() {
           width: '100%',
           height: '100%',
           display: 'flex',
-          flexDirection: 'column',
+          alignItems: 'center',
           justifyContent: 'center',
-          alignItems: 'stretch',
-          gap: 3,
-          padding: 6,
-          borderRadius: 7,
-          background:
-            'linear-gradient(135deg, #06b6d4 0%, #14b8a6 55%, #10b981 100%)',
+          background: '#000000',
+          color: '#00ADD8', // Go brand cyan
+          fontSize: 24,
+          fontWeight: 900,
+          letterSpacing: '-0.04em',
+          fontFamily: 'system-ui, sans-serif',
         }}
       >
-        <div
-          style={{
-            height: 3,
-            borderRadius: 2,
-            background: 'rgba(255,255,255,0.95)',
-          }}
-        />
-        <div
-          style={{
-            height: 3,
-            borderRadius: 2,
-            background: 'rgba(255,255,255,0.75)',
-            marginLeft: 4,
-          }}
-        />
-        <div
-          style={{
-            height: 3,
-            borderRadius: 2,
-            background: 'rgba(255,255,255,0.55)',
-            marginLeft: 8,
-          }}
-        />
+        S
       </div>
     ),
     size,

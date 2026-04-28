@@ -10,7 +10,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL('https://jerkeyray.com'),
   title: {
-    default: 'Starling — event-sourced agent runtime for Go',
+    default: 'Starling · event-sourced agent runtime for Go',
     template: '%s · Starling',
   },
   description:
