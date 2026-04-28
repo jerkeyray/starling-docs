@@ -39,7 +39,7 @@ flowchart LR
 | Backend                      | Use when                                                                            | Avoid when                                                  |
 |------------------------------|-------------------------------------------------------------------------------------|-------------------------------------------------------------|
 | `eventlog.NewInMemory`       | Tests, ephemeral CLIs.                                                              | Anything you might want to replay later.                    |
-| `eventlog.NewSQLite`         | Single-host services, edge nodes. WAL + per-run `_txlock=immediate`.                | Multi-host writers — SQLite has no cross-host locking.      |
+| `eventlog.NewSQLite`         | Single-host services, edge nodes. WAL + per-run `_txlock=immediate`.                | Multi-host writers: SQLite has no cross-host locking.      |
 | `eventlog.NewPostgres`       | Multi-host services, regulated workloads, anything needing PITR or replication.     | Workloads where the DB is unavailable for long stretches.   |
 
 ## Schema migrations
@@ -75,7 +75,7 @@ log, err := eventlog.NewSQLite("/var/lib/starling/log.db")
   can pay the latency.
 - File permissions: `0600`, owned by the agent user.
 - One process per file. Multiple processes can read concurrently
-  (`WithReadOnly`), but only one process should ever write — use
+  (`WithReadOnly`), but only one process should ever write: use
   Postgres for multi-writer.
 - Backup: `sqlite3 log.db ".backup /tmp/log-backup.db"` while the agent
   is running. Restore by stopping the agent, swapping the file, and
@@ -120,7 +120,7 @@ that the agent ran on the claimed wall-clock time (`Timestamp` comes
 from `step.Now`).
 
 For cross-process attestation, sign the terminal `RunCompleted`
-payload externally — the Merkle root is the natural signing target.
+payload externally: the Merkle root is the natural signing target.
 
 ### Inspector auth and TLS
 
@@ -148,7 +148,7 @@ server {
 ```
 
 For mTLS, use `ssl_verify_client on` at the proxy. The inspector itself
-does not consume client certs — the proxy decision is authoritative.
+does not consume client certs: the proxy decision is authoritative.
 
 ### Secrets
 
@@ -166,7 +166,7 @@ reasoning, and tool I/O. Treat the database file or table as PII:
 - Encrypt at rest (filesystem-level for SQLite; `pgcrypto` / TDE for
   Postgres).
 - Restrict OS-level access; SQLite file `0600` owned by the agent user.
-- The inspector serves payloads verbatim — never expose past a trusted
+- The inspector serves payloads verbatim: never expose past a trusted
   operator audience.
 
 There is no built-in field-level redaction. Redact at the tool boundary
@@ -190,7 +190,7 @@ hash chain for every later event in the same run.
 - **Delete whole runs.** Removing all events for a `run_id` is safe.
 - **Archive whole runs to cold storage.** Export to NDJSON via
   `starling export`, store the file somewhere cheaper, then delete.
-- **Partition by time.** Postgres only — drops to `DROP PARTITION` for
+- **Partition by time.** Postgres only: drops to `DROP PARTITION` for
   retention. Use `pg_partman` or a cron job to roll new monthly
   partitions; drop the oldest at the retention horizon.
 - **Truncate the inspector view.** `RunSummary.StartedAt` lets you
@@ -214,7 +214,7 @@ then `VACUUM` during low traffic.
 
 ### PII deletion (right-to-erasure)
 
-Maintain an external `user_id → []run_id` index — Starling does not
+Maintain an external `user_id → []run_id` index: Starling does not
 keep one. On request, `DELETE FROM eventlog_events WHERE run_id IN
 (...)` and remove any archived NDJSON. Don't try to selectively redact
 within a run; the chain depends on every event.
@@ -226,8 +226,8 @@ collection set on the supplied `prometheus.Registerer`. Highlights:
 
 | Metric                                          | Type      | Labels                            |
 |-------------------------------------------------|-----------|-----------------------------------|
-| `starling_runs_started_total`                   | Counter   | —                                 |
-| `starling_runs_in_flight`                       | Gauge     | —                                 |
+| `starling_runs_started_total`                   | Counter   |:                                 |
+| `starling_runs_in_flight`                       | Gauge     |:                                 |
 | `starling_run_duration_seconds`                 | Histogram | `status`                          |
 | `starling_run_terminal_total`                   | Counter   | `status`, `error_type`            |
 | `starling_provider_call_seconds`                | Histogram | `model`                           |

@@ -92,7 +92,6 @@ export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
       <Hero />
-      <Benchmarks />
       <Providers />
       <FeatureGrid />
       <HowItWorks />
@@ -103,13 +102,13 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90">
+    <section className="relative flex min-h-[calc(100svh-56px)] items-center overflow-hidden border-b-2 border-fd-foreground/90">
       <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
       {/* diagonal accent stripe (manga panel break) */}
       <div className="pointer-events-none absolute -top-24 right-[-10%] h-72 w-[120%] -rotate-6 bg-cyan-500/10 dark:bg-cyan-500/[0.08]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-fd-foreground/90" />
 
-      <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-28">
+      <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-6 py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-20">
         <div>
           <Link
             href={repoURL}
@@ -156,33 +155,6 @@ function Hero() {
           </div>
         </div>
         <EventTimeline />
-      </div>
-    </section>
-  );
-}
-
-function Benchmarks() {
-  const rows = [
-    { value: '~1.7 µs', label: 'in-memory append' },
-    { value: '~31 µs', label: 'SQLite append' },
-    { value: '~7.5 ms', label: 'validate · 10k events' },
-  ];
-  return (
-    <section className="border-b-2 border-fd-foreground/90 bg-fd-background">
-      <div className="mx-auto grid max-w-5xl divide-x-2 divide-fd-foreground/90 sm:grid-cols-3">
-        {rows.map((r) => (
-          <div
-            key={r.label}
-            className="px-6 py-8 text-center transition hover:bg-cyan-500/[0.06]"
-          >
-            <div className="font-mono text-3xl font-black tracking-tight text-fd-foreground">
-              {r.value}
-            </div>
-            <div className="mt-1 text-[11px] font-bold uppercase tracking-wider text-fd-muted-foreground">
-              {r.label}
-            </div>
-          </div>
-        ))}
       </div>
     </section>
   );
@@ -275,20 +247,20 @@ function HowItWorks() {
           the inspector, and replay verification all read the same shape.
         </p>
         <p className="mb-4 text-fd-muted-foreground">
-          Every event is hash-chained on append and Merkle-rooted on terminal —
-          mutate any prior event and{' '}
+          Every event is hash-chained on append. The terminal event commits a
+          Merkle root over all priors. Mutate any prior event and{' '}
           <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
             eventlog.Validate
           </code>{' '}
           fails.
         </p>
         <p className="mb-8 text-fd-muted-foreground">
-          Replay diffs the re-executed agent against the recording and surfaces
-          the first mismatch as a typed{' '}
+          Replay re-executes the agent against the same wiring. The first event
+          that does not byte-match surfaces as a typed{' '}
           <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
             replay.Divergence
           </code>{' '}
-          carrying the seq, kind, expected kind, class, and reason.
+          carrying seq, kind, expected kind, class, and reason.
         </p>
         <Link
           href="/docs/events"

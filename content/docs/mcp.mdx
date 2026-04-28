@@ -63,7 +63,7 @@ a := &starling.Agent{
 | Option                                 | Purpose                                                          |
 |----------------------------------------|------------------------------------------------------------------|
 | `WithClientInfo(name, version)`        | Override the client identity sent on `initialize`.               |
-| `WithToolNamePrefix(p)`                | Namespace remote tools — useful when mounting multiple servers.  |
+| `WithToolNamePrefix(p)`                | Namespace remote tools: useful when mounting multiple servers.  |
 | `WithIncludeTools(...)`                | Restrict to the named remote tools.                              |
 | `WithExcludeTools(...)`                | Drop the named remote tools.                                     |
 | `WithCallTimeout(d)`                   | Per-call deadline. Zero leaves cancellation to the caller's ctx. |
@@ -123,9 +123,9 @@ it's also wrapped with `tool.ErrTransient` so the caller's
 
 `tool/mcp` ships with a deliberately narrow surface:
 
-- **MCP resources** — file-tree-style reads; not yet wired.
-- **MCP prompts** — server-provided prompt templates; deferred.
-- **MCP sampling** — server asking the client to run a model; deferred.
+- **MCP resources**: file-tree-style reads; not yet wired.
+- **MCP prompts**: server-provided prompt templates; deferred.
+- **MCP sampling**: server asking the client to run a model; deferred.
 
 Tools cover the common ADK-parity case. If you hit a wall on resources or
 prompts, file an issue with the use case before building it locally.

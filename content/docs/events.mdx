@@ -43,9 +43,9 @@ Closed set. Adding a kind is a schema-version bump.
 | 9  | `SideEffectRecorded`       | `step.Now`, `Random`, `SideEffect`.     |
 | 10 | `BudgetExceeded`           | Budget axis tripped.                    |
 | 11 | `ContextTruncated`         | Context-window strategy trim.           |
-| 12 | `RunCompleted`             | Terminal — successful run.              |
-| 13 | `RunFailed`                | Terminal — error path.                  |
-| 14 | `RunCancelled`             | Terminal — ctx cancelled.               |
+| 12 | `RunCompleted`             | Terminal: successful run.              |
+| 13 | `RunFailed`                | Terminal: error path.                  |
+| 14 | `RunCancelled`             | Terminal: ctx cancelled.               |
 | 15 | `RunResumed`               | Non-terminal seam from `Resume`.        |
 | 16 | `TurnFailed` (reserved)    | Mid-turn streaming failure with retry.  |
 
@@ -195,7 +195,7 @@ type RunResumed struct {
 
 A seam, not a terminal. Marks the boundary between a crashed run's
 prior process and its resuming process. Validation pairing rules treat
-it as a reset point — orphaned tool-call schedules from before the
+it as a reset point: orphaned tool-call schedules from before the
 seam don't need outcomes after it.
 
 <Mermaid chart={`
@@ -225,7 +225,7 @@ flowchart LR
 
 1. Slice non-empty, `events[0].Seq == 1`, monotonic seq with no gaps.
 2. `RunID` consistent and non-empty across all events.
-3. Hash chain unbroken — each `PrevHash` equals BLAKE3 of canonical
+3. Hash chain unbroken: each `PrevHash` equals BLAKE3 of canonical
    CBOR of the previous event.
 4. Exactly one terminal event, and it's the last event.
 5. First event is `RunStarted` with `SchemaVersion ∈ [1, current]`.
@@ -291,7 +291,7 @@ seq=9  AssistantMessageCompleted   prev=H(seq8)  turn=T2, no tool_uses
 seq=10 RunCompleted                prev=H(seq9)  merkle_root=M(seq1..seq9)
 ```
 
-Parallel tool completions land in arrival order — replay reproduces
+Parallel tool completions land in arrival order: replay reproduces
 that ordering deterministically because results are read from the log,
 not re-executed.
 
@@ -318,5 +318,5 @@ After 1.0:
 - Additive (new optional fields, new kinds) → minor bump.
 - Breaking → major bump.
 - Replayer refuses logs whose schema version is newer than its own major.
-- Old logs remain replayable forever — pin the binary version, or use the
+- Old logs remain replayable forever: pin the binary version, or use the
   migration tools shipped at the major bump.

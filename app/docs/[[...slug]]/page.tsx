@@ -21,10 +21,14 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <div className="-mt-2 mb-2">
-        <MarkdownCopyButton markdownUrl={markdownUrl} />
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <DocsTitle>{page.data.title}</DocsTitle>
+          <DocsDescription>{page.data.description}</DocsDescription>
+        </div>
+        <div className="mt-1 shrink-0">
+          <MarkdownCopyButton markdownUrl={markdownUrl} />
+        </div>
       </div>
       <DocsBody>
         <MDX

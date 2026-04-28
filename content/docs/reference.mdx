@@ -1,34 +1,10 @@
 ---
 title: Reference
-description: Per-package API reference — types, signatures, and short examples for the Starling Go runtime.
+description: "Per-package API reference: types, signatures, and short examples for the Starling Go runtime."
 ---
 
-This page is the prose reference. Source links open the canonical file
-on GitHub for the long tail of options and helpers; everything
-load-bearing is documented here.
-
-## Package layout
-
-```text
-github.com/jerkeyray/starling/                root: Agent, Run, Resume, Replay
-                            /budget           Budget caps + per-model prices
-                            /event            Event types + canonical CBOR
-                            /eventlog         EventLog interface + backends
-                            /step             Determinism helpers (Now, SideEffect, …)
-                            /tool             tool.Tool + tool.Typed
-                            /tool/builtin     Reference tool implementations
-                            /tool/mcp         MCP tool adapter
-                            /provider         Provider interface + types
-                            /provider/openai  OpenAI-compatible adapter
-                            /provider/anthropic
-                            /provider/gemini
-                            /provider/openrouter
-                            /provider/conformance
-                            /replay           Verify, Stream, Divergence
-                            /inspect          Embedded web UI
-                            /cmd/starling     CLI: validate, export, migrate, schema-version
-                            /cmd/starling-inspect  Standalone inspector binary
-```
+Per-package types, signatures, and short examples. Each section is the
+authoritative reference for that package.
 
 ## starling (root)
 
@@ -204,8 +180,8 @@ All three built-in backends satisfy `RunLister`.
 
 Common options:
 
-- `WithReadOnly()` (SQLite) / `WithReadOnlyPG()` (Postgres) — inspector mode.
-- `WithAutoMigratePG()` — run schema migrations on connect.
+- `WithReadOnly()` (SQLite) / `WithReadOnlyPG()` (Postgres): inspector mode.
+- `WithAutoMigratePG()`: run schema migrations on connect.
 
 ### Validation, migrations, preflight
 
@@ -393,7 +369,7 @@ machine is enforced by `step.LLMCall`.
 | `provider/openai`             | OpenAI, Groq, Together, Ollama, vLLM, LM Studio, Azure, anything else OpenAI-compatible (set `WithBaseURL`). |
 | `provider/anthropic`          | Messages API. Tool use, extended thinking with signature, prompt caching. |
 | `provider/gemini`             | Native Google Gemini.                                                     |
-| `provider/openrouter`         | OpenRouter — thin wrapper over the OpenAI adapter with attribution headers. |
+| `provider/openrouter`         | OpenRouter: thin wrapper over the OpenAI adapter with attribution headers. |
 | `provider/conformance`        | The contract test every adapter passes.                                   |
 
 Each adapter advertises its support set via
@@ -422,12 +398,12 @@ type Divergence struct {
 var ErrNonDeterminism = errors.New("replay: non-determinism detected")
 ```
 
-`Verify` is the headless check — returns `nil` on clean replay or
+`Verify` is the headless check: returns `nil` on clean replay or
 wraps `*Divergence` with `ErrNonDeterminism` on the first mismatch.
 The root `starling.Replay` is a thin wrapper that takes `*Agent`
 directly.
 
-`Stream` is the inspector path — yields a `ReplayStep` per emitted
+`Stream` is the inspector path: yields a `ReplayStep` per emitted
 event so the UI can render recorded vs produced side-by-side. The final
 step has `Diverged: true` when the replay didn't reach the recorded
 terminal.
@@ -450,7 +426,7 @@ func WithReplayer(factory replay.Factory) Option
 
 Read-only by construction, CSRF-protected on the two replay POST
 endpoints, bearer-token via `Authenticator`. Front it with TLS in
-production — see the [Operations](/docs/operations) page.
+production: see the [Operations](/docs/operations) page.
 
 Source: [`inspect/`](https://github.com/jerkeyray/starling/tree/main/inspect),
 [`cmd/starling-inspect/`](https://github.com/jerkeyray/starling/tree/main/cmd/starling-inspect).

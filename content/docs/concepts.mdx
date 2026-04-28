@@ -57,7 +57,7 @@ to do exactly two things:
 1. Read events from the log.
 2. Emit commands that the runtime reifies as new events.
 
-Anything else — wall clock, RNG, HTTP, filesystem — must go through the
+Anything else: wall clock, RNG, HTTP, filesystem: must go through the
 `step` package:
 
 ```go
@@ -70,7 +70,7 @@ val, err := step.SideEffect(ctx, "name", func() (T, error) {
 
 `step` helpers append a `SideEffectRecorded` event on the live run. Replay
 reads that event and returns the recorded value without invoking the
-closure. This is what makes a run portable — the recording carries every
+closure. This is what makes a run portable: the recording carries every
 non-deterministic value alongside the agent's deterministic logic.
 
 ## Replay
@@ -79,9 +79,9 @@ non-deterministic value alongside the agent's deterministic logic.
 against the same agent wiring. Every event the loop attempts to emit is
 compared to the recording at the matching seq:
 
-- `Kind` mismatch — the loop produced a different event type.
-- `Payload` mismatch — same kind, different bytes.
-- `Exhausted` — the loop ran past the end of the recording.
+- `Kind` mismatch: the loop produced a different event type.
+- `Payload` mismatch: same kind, different bytes.
+- `Exhausted`: the loop ran past the end of the recording.
 
 Mismatches surface as a typed `*replay.Divergence` carrying `RunID`,
 `Seq`, `Kind`, `ExpectedKind`, `Class`, and `Reason`. Wrap with
@@ -136,10 +136,10 @@ inline runtime checks, not after-the-fact dashboards.
 
 Three event-log implementations:
 
-- `eventlog.NewInMemory()` — tests, demos, ephemeral CLI tools.
-- `eventlog.NewSQLite(path)` — single-host services. WAL mode + per-run
+- `eventlog.NewInMemory()`: tests, demos, ephemeral CLI tools.
+- `eventlog.NewSQLite(path)`: single-host services. WAL mode + per-run
   `_txlock=immediate` makes one-writer-many-readers correct.
-- `eventlog.NewPostgres(db)` — multi-host services. Per-run advisory
+- `eventlog.NewPostgres(db)`: multi-host services. Per-run advisory
   locks serialize appenders by run.
 
 All three implement the same `EventLog` interface and the same migration
@@ -158,4 +158,4 @@ The plan calls these out and Starling doesn't ship them:
 - Built-in memory store
 
 You write Go. The runtime stays small. The plan is to win on a narrow
-wedge — production debugging via replay — not on breadth.
+wedge: production debugging via replay: not on breadth.
