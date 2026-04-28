@@ -16,6 +16,10 @@ export function baseOptions(): BaseLayoutProps {
   return {
     nav: { title: appName },
     githubUrl: repoURL,
+    links: [
+      { type: 'main', text: 'Features', url: '/features' },
+      { type: 'main', text: 'Docs', url: '/docs', active: 'nested-url' },
+    ],
   };
 }
 
@@ -25,6 +29,8 @@ export function homeOptions(): BaseLayoutProps {
     searchToggle: { enabled: false },
     themeSwitch: { enabled: false },
     links: [
+      { type: 'main', text: 'Features', url: '/features' },
+      { type: 'main', text: 'Docs', url: '/docs', active: 'nested-url' },
       {
         type: 'icon',
         url: repoURL,

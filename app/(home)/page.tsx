@@ -95,6 +95,7 @@ export default function HomePage() {
       <Providers />
       <FeatureGrid />
       <HowItWorks />
+      <OpenSource />
       <Footer />
     </main>
   );
@@ -110,13 +111,12 @@ function Hero() {
 
       <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-20">
         <div>
-          <Link
-            href={repoURL}
-            className={`mb-5 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-fd-foreground transition hover:bg-cyan-500 hover:text-white sm:mb-7 sm:text-xs ${hardShadowSm}`}
+          <span
+            className={`mb-5 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-fd-foreground sm:mb-7 sm:text-xs ${hardShadowSm}`}
           >
             <GithubMark className="size-3.5" />
             <span>Pre-release · Go 1.26+</span>
-          </Link>
+          </span>
           <h1 className="mb-5 text-balance text-4xl font-black leading-[1.05] tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
             Event-sourced
             <br />
@@ -145,6 +145,12 @@ function Hero() {
             >
               Quickstart
               <ArrowRight className="size-4" />
+            </Link>
+            <Link
+              href="/features"
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-emerald-500 px-4 py-2 text-[13px] font-bold uppercase tracking-wider text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
+            >
+              Features
             </Link>
             <Link
               href="/docs"
@@ -305,6 +311,43 @@ function EventTimeline() {
         </ol>
       </div>
     </div>
+  );
+}
+
+function OpenSource() {
+  return (
+    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-background px-5 py-14 sm:px-6 sm:py-20">
+      <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
+      <div className="pointer-events-none absolute -bottom-16 left-[-10%] h-56 w-[120%] -rotate-3 bg-emerald-500/10" />
+      <div className="relative mx-auto max-w-3xl text-center">
+        <span
+          className={`mb-4 inline-block border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-fd-foreground sm:mb-5 ${hardShadowSm}`}
+        >
+          Open source
+        </span>
+        <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+          Built in the open.{' '}
+          <span className="relative inline-block text-emerald-500">
+            Yours to fork
+            <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
+          </span>
+          .
+        </h2>
+        <p className="mx-auto mb-7 max-w-xl text-sm leading-relaxed text-fd-muted-foreground sm:mb-8 sm:text-base">
+          Issues, pull requests, and design discussions are genuinely
+          appreciated. Star the repo to follow along.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+          <Link
+            href={repoURL}
+            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-[13px] font-bold uppercase tracking-wider transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
+          >
+            <GithubMark className="size-4" />
+            Star on GitHub
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
