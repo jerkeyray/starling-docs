@@ -1,45 +1,34 @@
-# starling-docs
+<div align="center">
 
-This is a Next.js application generated with
-[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
-
-Run development server:
-
-```bash
-npm run dev
-# or
-pnpm dev
-# or
-yarn dev
+```text
+███████╗████████╗ █████╗ ██████╗ ██╗     ██╗███╗   ██╗ ██████╗
+██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║     ██║████╗  ██║██╔════╝
+███████╗   ██║   ███████║██████╔╝██║     ██║██╔██╗ ██║██║  ███╗
+╚════██║   ██║   ██╔══██║██╔══██╗██║     ██║██║╚██╗██║██║   ██║
+███████║   ██║   ██║  ██║██║  ██║███████╗██║██║ ╚████║╚██████╔╝
+╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝
 ```
 
-Open http://localhost:3000 with your browser to see the result.
+**Docs for the event-sourced agent runtime for Go**
 
-## Explore
+Replayable runs · Tamper-evident logs · Provider-neutral tools · Production debugging
 
-In the project, you can see:
+</div>
 
-- `lib/source.ts`: Code for content source adapter, [`loader()`](https://fumadocs.dev/docs/headless/source-api) provides the interface to access your content.
-- `lib/layout.shared.tsx`: Shared options for layouts, optional but preferred to keep.
+Documentation site for [Starling](https://github.com/jerkeyray/starling) —
+a Go runtime for building LLM agents where every run is recorded as an
+append-only, BLAKE3-chained, Merkle-rooted event log. When an agent fails
+in production, you can inspect the log, replay it against the same agent
+wiring, and see exactly where today's behavior diverges from the original
+recording.
 
-| Route                     | Description                                            |
-| ------------------------- | ------------------------------------------------------ |
-| `app/(home)`              | The route group for your landing page and other pages. |
-| `app/docs`                | The documentation layout and pages.                    |
-| `app/api/search/route.ts` | The Route Handler for search.                          |
+## What's here
 
-### Fumadocs MDX
+- **Quickstart** — hello agent in five minutes.
+- **Build with Starling** — first agent, tools, providers, persistence, budgets.
+- **Replay-driven tests** — capture a run once, assert byte-identity in CI.
+- **For AI agents** — a single self-contained markdown block for Claude/Cursor/etc.
+- **Reference** — per-package types, signatures, examples.
+- **Operations** — deployment, security, retention, metrics, tracing.
 
-A `source.config.ts` config file has been included, you can customise different options like frontmatter schema.
-
-Read the [Introduction](https://fumadocs.dev/docs/mdx) for further details.
-
-## Learn More
-
-To learn more about Next.js and Fumadocs, take a look at the following
-resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js
-  features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [Fumadocs](https://fumadocs.dev) - learn about Fumadocs
+Visit the published site or browse `content/docs/` for the source.
