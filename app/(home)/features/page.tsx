@@ -59,7 +59,7 @@ const sections: Section[] = [
       },
       {
         title: 'Raw response digest',
-        body: 'AssistantMessageCompleted carries the provider-supplied raw-response hash. Optional strict mode rejects empty digests.',
+        body: 'AssistantMessageCompleted carries a BLAKE3 digest the adapter computes over the SDK-level response. Optional strict mode rejects empty digests.',
       },
       {
         title: 'Canonical CBOR',
@@ -115,7 +115,7 @@ const sections: Section[] = [
       },
       {
         title: 'Schema preflight',
-        body: 'Run, Resume, and Replay all call eventlog.Preflight on startup. Stale or too-new schemas fail fast with a remediation message.',
+        body: 'Run and Resume call eventlog.Preflight on startup. Stale or too-new schemas fail fast with a remediation message.',
       },
     ],
   },
@@ -135,7 +135,7 @@ const sections: Section[] = [
       },
       {
         title: 'MaxUSD',
-        body: 'Mid-stream USD enforcement using per-model prices. Per-model rates are configurable.',
+        body: 'Mid-stream USD enforcement using a per-model price table in the budget package. Edit the table to add or override rates.',
       },
       {
         title: 'MaxWallClock',
@@ -203,7 +203,7 @@ const sections: Section[] = [
       },
       {
         title: 'Per-call timeouts',
-        body: 'WithCallTimeout on the MCP adapter; per-tool timeout via step.ToolCall on local tools.',
+        body: 'WithCallTimeout on the MCP adapter. Local tools enforce timeouts via context.WithDeadline inside the tool.',
       },
     ],
   },
@@ -235,7 +235,7 @@ const sections: Section[] = [
       },
       {
         title: 'RunLister',
-        body: 'All three backends expose ListRuns for the inspector. Filter by status, model, time range.',
+        body: 'All three backends expose ListRuns for inspector-style run indexes, ordered newest first.',
       },
     ],
   },

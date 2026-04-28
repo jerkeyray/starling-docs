@@ -1,8 +1,7 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
+import tseslint from 'typescript-eslint';
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
   globalIgnores([
     '.next/**',
     'out/**',
@@ -10,6 +9,7 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     '.source/**',
   ]),
+  ...tseslint.configs.recommended,
 ]);
 
 export default eslintConfig;

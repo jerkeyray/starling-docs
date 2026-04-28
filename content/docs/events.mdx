@@ -1,6 +1,6 @@
 ---
 title: Event schema
-description: The 15 event kinds, their payloads, the canonical CBOR wire format, and the invariants the runtime enforces.
+description: Event kinds, payloads, the canonical CBOR wire format, and the invariants the runtime enforces.
 ---
 
 Wire-format reference for the event log.
@@ -29,24 +29,31 @@ shortest float that round-trips.
 
 Closed set. Adding a kind is a schema-version bump.
 
-| #  | Kind                       | Emitted by                              |
-|----|----------------------------|-----------------------------------------|
-| 1  | `RunStarted`               | First event of every run.               |
-| 2  | `UserMessageAppended`      | `Resume` injecting an extra message.    |
-| 3  | `TurnStarted`              | `step.LLMCall` pre-call.                |
-| 4  | `ReasoningEmitted`         | Provider reasoning blocks (optional).   |
-| 5  | `AssistantMessageCompleted`| `step.LLMCall` on `ChunkEnd`.           |
+### Emitted by the runtime today
+
+| #  | Kind                       | Emitted by                                  |
+|----|----------------------------|---------------------------------------------|
+| 1  | `RunStarted`               | First event of every run.                   |
+| 2  | `UserMessageAppended`      | `Resume` injecting an extra message.        |
+| 3  | `TurnStarted`              | `step.LLMCall` pre-call.                    |
+| 4  | `ReasoningEmitted`         | Provider reasoning blocks (optional).       |
+| 5  | `AssistantMessageCompleted`| `step.LLMCall` on `ChunkEnd`.               |
 | 6  | `ToolCallScheduled`        | `step.CallTool` / `CallTools` pre-dispatch. |
-| 7  | `ToolCallCompleted`        | Tool returned successfully.             |
-| 8  | `ToolCallFailed`           | Tool returned an error.                 |
-| 9  | `SideEffectRecorded`       | `step.Now`, `Random`, `SideEffect`.     |
-| 10 | `BudgetExceeded`           | Budget axis tripped.                    |
-| 11 | `ContextTruncated`         | Context-window strategy trim.           |
-| 12 | `RunCompleted`             | Terminal: successful run.              |
-| 13 | `RunFailed`                | Terminal: error path.                  |
-| 14 | `RunCancelled`             | Terminal: ctx cancelled.               |
-| 15 | `RunResumed`               | Non-terminal seam from `Resume`.        |
-| 16 | `TurnFailed` (reserved)    | Mid-turn streaming failure with retry.  |
+| 7  | `ToolCallCompleted`        | Tool returned successfully.                 |
+| 8  | `ToolCallFailed`           | Tool returned an error.                     |
+| 9  | `SideEffectRecorded`       | `step.Now`, `Random`, `SideEffect`.         |
+| 10 | `BudgetExceeded`           | Budget axis tripped.                        |
+| 12 | `RunCompleted`             | Terminal: successful run.                   |
+| 13 | `RunFailed`                | Terminal: error path.                       |
+| 14 | `RunCancelled`             | Terminal: ctx cancelled.                    |
+| 15 | `RunResumed`               | Non-terminal seam from `Resume`.            |
+
+### Reserved (defined in schema, not emitted by core)
+
+| #  | Kind               | Notes                                                                       |
+|----|--------------------|-----------------------------------------------------------------------------|
+| 11 | `ContextTruncated` | Reserved for context-window trim strategies. Validate accepts; core does not emit. |
+| 16 | `TurnFailed`       | Reserved for mid-turn streaming failure with retry. Validate accepts; core does not emit. |
 
 ## Payloads
 

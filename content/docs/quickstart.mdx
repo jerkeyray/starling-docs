@@ -27,6 +27,7 @@ import (
     starling "github.com/jerkeyray/starling"
     "github.com/jerkeyray/starling/eventlog"
     "github.com/jerkeyray/starling/provider/openai"
+    "github.com/jerkeyray/starling/step"
     "github.com/jerkeyray/starling/tool"
 )
 
@@ -40,11 +41,13 @@ func main() {
         panic(err)
     }
 
+    // step.Now records the timestamp on the live run and returns the
+    // recorded value on replay, so the tool stays deterministic.
     clock := tool.Typed(
         "current_time",
         "Return the current UTC time in RFC3339.",
-        func(_ context.Context, _ struct{}) (clockOut, error) {
-            return clockOut{UTC: time.Now().UTC().Format(time.RFC3339)}, nil
+        func(ctx context.Context, _ struct{}) (clockOut, error) {
+            return clockOut{UTC: step.Now(ctx).UTC().Format(time.RFC3339)}, nil
         },
     )
 

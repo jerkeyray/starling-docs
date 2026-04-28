@@ -14,14 +14,14 @@ function GithubMark({ className = 'size-4' }: { className?: string }) {
 
 export function baseOptions(): BaseLayoutProps {
   return {
-    nav: { title: appName },
+    nav: { title: appName, url: '/' },
     githubUrl: repoURL,
   };
 }
 
 export function homeOptions(): BaseLayoutProps {
   return {
-    nav: { title: appName },
+    nav: { title: appName, url: '/' },
     searchToggle: { enabled: false },
     themeSwitch: { enabled: false },
     links: [

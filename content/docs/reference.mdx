@@ -97,8 +97,8 @@ type Event struct {
 }
 ```
 
-There are 15 event kinds; the full schema with payload definitions and
-invariants is on the [Events](/docs/events) page.
+The full schema with payload definitions, the kinds the runtime emits,
+the reserved kinds, and the invariants live on the [Events](/docs/events) page.
 
 Encoding helpers: `Marshal`, `Unmarshal`, `Hash`, `ToJSON`.
 `event.HashSize` is 32. Each typed payload has an `EncodePayload[T]`
@@ -286,7 +286,7 @@ Embedded HTTP handler. Serves the runs list, per-run timeline, event
 detail, live tail (SSE), and replay. The standalone binary at
 `cmd/starling-inspect` opens any SQLite log read-only.
 
-`inspect.New(log, opts...)` returns a `*Server`. Options:
+`inspect.New(log, opts...) (*Server, error)`. Options:
 
 - **`WithAuth(authenticator)`** — protect every endpoint.
 - **`BearerAuth(token)`** — convenience `Authenticator`.

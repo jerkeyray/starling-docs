@@ -111,7 +111,8 @@ modified after append; replays match recorded byte-exact behavior.
 
 **Does not prove:** that the operator wrote the truth into the log
 (an operator can construct any valid run); that the provider returned
-a specific response (`RawResponseHash` is a provider-supplied digest);
+a specific response (`RawResponseHash` is a BLAKE3 digest computed
+by the adapter over the SDK-level response, not a vendor signature);
 that the agent ran on the claimed wall-clock time (`Timestamp` comes
 from `step.Now`).
 
@@ -214,12 +215,12 @@ collection set on the supplied `prometheus.Registerer`. Highlights:
 | `starling_run_duration_seconds`                 | Histogram | `status`                          |
 | `starling_run_terminal_total`                   | Counter   | `status`, `error_type`            |
 | `starling_provider_calls_total`                 | Counter   | `model`, `status`                 |
-| `starling_provider_call_duration_seconds`       | Histogram | `model`, `status`                 |
+| `starling_provider_call_duration_seconds`       | Histogram | `model`                           |
 | `starling_provider_tokens_total`                | Counter   | `model`, `type`                   |
 | `starling_tool_calls_total`                     | Counter   | `tool`, `status`, `error_type`    |
-| `starling_tool_call_duration_seconds`           | Histogram | `tool`, `status`                  |
+| `starling_tool_call_duration_seconds`           | Histogram | `tool`                            |
 | `starling_eventlog_appends_total`               | Counter   | `kind`, `status`                  |
-| `starling_eventlog_append_duration_seconds`     | Histogram | `kind`, `status`                  |
+| `starling_eventlog_append_duration_seconds`     | Histogram | `kind`                            |
 | `starling_budget_exceeded_total`                | Counter   | `axis`                            |
 
 Wire the `/metrics` handler into your existing HTTP mux:
