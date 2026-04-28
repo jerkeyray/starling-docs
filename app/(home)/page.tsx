@@ -196,42 +196,40 @@ function Providers() {
 
 function FeatureGrid() {
   return (
-    <section className="border-b-2 border-fd-foreground/90 px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
+    <section className="border-b-2 border-fd-foreground/90 px-5 py-10 sm:px-6 sm:py-14 lg:py-16">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10 flex flex-col gap-6 sm:mb-14 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
+        <div className="mb-7 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
           <div className="max-w-2xl">
-            <span className="mb-3 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
+            <span className="mb-3 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:text-xs">
               what you get
             </span>
-            <h2 className="mb-3 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-              a go runtime built around the log as
-              <br className="hidden sm:inline" />{' '}
-              source of truth.
+            <h2 className="mb-2 text-2xl font-black leading-[1.1] tracking-tight sm:text-3xl md:text-4xl">
+              a go runtime built around the log as source of truth.
             </h2>
-            <p className="text-sm text-fd-muted-foreground sm:text-base">
+            <p className="text-sm text-fd-muted-foreground">
               Production-shaped from the start. Nothing about the design
               optimizes for demos.
             </p>
           </div>
           <Link
             href="/why-starling"
-            className={`shrink-0 self-start inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadowSm}`}
+            className={`shrink-0 self-start inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
           >
             see all 8 categories
             <ArrowRight className="size-4" />
           </Link>
         </div>
-        <div className="grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {features.map(({ icon: Icon, title, body }) => (
             <div
               key={title}
-              className={`group relative border-2 border-fd-foreground bg-fd-background p-5 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:p-6 ${hardShadowSm}`}
+              className={`group relative border-2 border-fd-foreground bg-fd-background p-4 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
             >
-              <div className="mb-3 inline-flex size-10 items-center justify-center border-2 border-fd-foreground bg-cyan-500/15 sm:mb-4">
-                <Icon className="size-5 text-cyan-600 dark:text-cyan-300" strokeWidth={2.25} />
+              <div className="mb-2 inline-flex size-8 items-center justify-center border-2 border-fd-foreground bg-cyan-500/15">
+                <Icon className="size-4 text-cyan-600 dark:text-cyan-300" strokeWidth={2.25} />
               </div>
-              <h3 className="mb-2 text-base font-bold">{title}</h3>
-              <p className="text-sm leading-relaxed text-fd-muted-foreground">
+              <h3 className="mb-1.5 text-sm font-bold">{title}</h3>
+              <p className="text-[13px] leading-relaxed text-fd-muted-foreground">
                 {body}
               </p>
             </div>
@@ -439,9 +437,9 @@ function OpenSource() {
           open source
         </span>
         <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-          built in the open.{' '}
+          contributions{' '}
           <span className="relative inline-block text-emerald-500">
-            yours to fork
+            welcome
             <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
           </span>
           .
