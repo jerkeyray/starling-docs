@@ -1,5 +1,4 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import { Star } from 'lucide-react';
 import { appName, gitConfig } from './shared';
 
 const repoURL = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
@@ -28,22 +27,19 @@ export function homeOptions(): BaseLayoutProps {
       { type: 'main', text: 'why starling', url: '/why-starling' },
       { type: 'main', text: 'docs', url: '/docs', active: 'nested-url' },
       {
-        type: 'icon',
-        url: repoURL,
-        label: 'Star on GitHub',
-        text: 'Star on GitHub',
-        icon: (
-          <span className="inline-flex items-center gap-1.5">
-            <GithubMark className="size-4" />
-            <Star
-              className="size-4 text-amber-400"
-              fill="currentColor"
-              strokeWidth={1.75}
-            />
-          </span>
-        ),
-        external: true,
+        type: 'custom',
         secondary: true,
+        children: (
+          <a
+            href={repoURL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-fd-muted-foreground"
+          >
+            <GithubMark className="size-4" />
+            github
+          </a>
+        ),
       },
     ],
   };
