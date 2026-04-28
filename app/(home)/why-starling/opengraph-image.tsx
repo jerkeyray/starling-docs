@@ -1,11 +1,11 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Starling features';
+export const alt = 'Why Starling';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-export default function FeaturesOG() {
+export default function WhyStarlingOG() {
   return new ImageResponse(
     (
       <div
@@ -89,7 +89,7 @@ export default function FeaturesOG() {
               textTransform: 'uppercase',
             }}
           >
-            Features
+            Why Starling
           </div>
         </div>
 
@@ -104,7 +104,7 @@ export default function FeaturesOG() {
             marginBottom: '32px',
           }}
         >
-          <div>Everything in the</div>
+          <div>Built around the</div>
           <div>
             <span
               style={{
@@ -113,7 +113,7 @@ export default function FeaturesOG() {
                 paddingBottom: '4px',
               }}
             >
-              runtime
+              event log
             </span>
             .
           </div>
@@ -160,7 +160,7 @@ export default function FeaturesOG() {
             <span style={{ color: '#52525b' }}>·</span>
             <span>MCP</span>
           </div>
-          <div style={{ color: '#10b981' }}>jerkeyray.com</div>
+          <div style={{ color: '#10b981' }}>github.com/jerkeyray/starling</div>
         </div>
       </div>
     ),

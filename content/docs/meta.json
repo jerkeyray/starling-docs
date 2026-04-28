@@ -4,9 +4,12 @@
     "index",
     "quickstart",
     "concepts",
+    "build",
+    "replay-tests",
+    "for-agents",
     "events",
+    "reference",
     "mcp",
-    "operations",
-    "reference"
+    "operations"
   ]
 }

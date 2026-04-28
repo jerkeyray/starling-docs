@@ -1,0 +1,165 @@
+---
+title: Bound your costs
+description: Four axes — input tokens, output tokens, USD, wall-clock. Enforced inside the runtime, not after the fact. A trip emits BudgetExceeded and unwinds.
+---
+
+`Budget` is a four-axis cap enforced at runtime. Trips emit a
+`BudgetExceeded` event with exact context and unwind the run with
+`RunFailed{ErrorType:"budget"}`. Inline runtime checks, not after-the-fact
+dashboards.
+
+## The struct
+
+```go
+type Budget struct {
+    MaxInputTokens  int64
+    MaxOutputTokens int64
+    MaxUSD          float64
+    MaxWallClock    time.Duration
+}
+```
+
+Zero on any field disables that axis.
+
+## Where each axis trips
+
+| Axis              | Type            | Where enforced                                     | `BudgetExceeded.Where` |
+|-------------------|-----------------|----------------------------------------------------|------------------------|
+| `MaxInputTokens`  | `int64`         | Pre-call, before every `step.LLMCall`              | `"pre_call"`           |
+| `MaxOutputTokens` | `int64`         | Mid-stream, on every `ChunkUsage`                  | `"mid_stream"`         |
+| `MaxUSD`          | `float64`       | Mid-stream, using `budget/prices.go` per-model rates | `"mid_stream"`       |
+| `MaxWallClock`    | `time.Duration` | `context.WithDeadline` wrapping the run            | `"mid_stream"`         |
+
+The token and USD axes count cumulatively across the whole run, not per
+turn. `MaxWallClock` is wall-clock from `Run` entry to terminal event.
+
+## Wiring a Budget
+
+```go
+a := &starling.Agent{
+    Provider: prov,
+    Log:      log,
+    Tools:    tools,
+    Budget: &starling.Budget{
+        MaxInputTokens:  100_000,
+        MaxOutputTokens: 8_000,
+        MaxUSD:          1.50,
+        MaxWallClock:    2 * time.Minute,
+    },
+    Config: starling.Config{Model: "gpt-4o-mini", MaxTurns: 12},
+}
+```
+
+`nil` Budget disables every axis.
+
+## The BudgetExceeded event
+
+```go
+type BudgetExceeded struct {
+    Limit         string  // "input_tokens" | "output_tokens" | "usd" | "wall_clock"
+    Cap           float64
+    Actual        float64
+    Where         string  // "pre_call" | "mid_stream"
+    TurnID        string  // omitempty
+    CallID        string  // omitempty
+    PartialText   string  // omitempty
+    PartialTokens int64   // omitempty
+}
+```
+
+Mid-stream trips include `PartialText` and `PartialTokens` so you can
+recover what the model produced before the cap was hit. Pre-call trips
+don't — the call never started.
+
+After `BudgetExceeded`, the run unwinds with:
+
+```go
+// RunFailed payload (truncated):
+{
+    ErrorType: "budget",
+    Limit:     "usd",            // matches BudgetExceeded.Limit
+    // ...
+}
+```
+
+## Reading a trip in CI
+
+```go
+events, err := log.Read(ctx, runID)
+if err != nil { return err }
+
+for _, ev := range events {
+    if ev.Kind != event.KindBudgetExceeded { continue }
+    var be event.BudgetExceeded
+    if err := event.AsBudgetExceeded(ev, &be); err != nil { return err }
+
+    log.Printf("budget %s tripped at %s: cap=%.2f actual=%.2f",
+        be.Limit, be.Where, be.Cap, be.Actual)
+    if be.PartialText != "" {
+        log.Printf("partial output (%d tokens): %s", be.PartialTokens, be.PartialText)
+    }
+}
+```
+
+## USD pricing
+
+The price table lives in `budget/prices.go` and is package-private —
+not overridable at runtime. To add or change a model's rates, edit the
+table in source. The table maps model id → input price, output price
+(USD per million tokens).
+
+For models not in the table, `MaxUSD` enforcement skips that axis (the
+runtime can't price what it doesn't know). Set `MaxInputTokens` and
+`MaxOutputTokens` as a defense-in-depth.
+
+## Picking values
+
+| Workload                                 | Sane starting caps                                                                  |
+|------------------------------------------|-------------------------------------------------------------------------------------|
+| Small QA bot, 1-3 turns                  | `MaxInputTokens: 8k`, `MaxOutputTokens: 2k`, `MaxUSD: 0.05`, `MaxWallClock: 30s`    |
+| Multi-tool research, 8-12 turns          | `MaxInputTokens: 100k`, `MaxOutputTokens: 8k`, `MaxUSD: 1.50`, `MaxWallClock: 2m`   |
+| Long-running incident triage             | `MaxInputTokens: 250k`, `MaxOutputTokens: 16k`, `MaxUSD: 5.00`, `MaxWallClock: 5m`  |
+| Replay only (no provider call)           | All axes 0; replay never pays cost.                                                 |
+
+Production agents should always set `MaxUSD`, even if generous. It's
+the only axis that scales 1:1 with billing surprises.
+
+## Recovering after a trip
+
+The terminal `RunFailed{ErrorType:"budget"}` is final — the run cannot
+continue under the same id. If you want a follow-up turn under a fresh
+budget:
+
+1. Read the recorded run, find the `BudgetExceeded.PartialText` if
+   any.
+2. Construct a new run with a new goal that incorporates the partial
+   output as context.
+3. The old run stays in the log for audit.
+
+## Budgets vs `MaxTurns`
+
+`Config.MaxTurns` caps the ReAct loop count. It's not a budget axis;
+it does not emit `BudgetExceeded`. A turn cap trip terminates with
+`RunFailed{ErrorType:"max_turns"}`. Use both: budgets for cost and
+time, `MaxTurns` for runaway tool-use loops.
+
+## Anti-patterns
+
+- **Setting only `MaxUSD`.** Models not in the price table aren't
+  enforced. Add token caps as defense-in-depth.
+- **`MaxWallClock` shorter than your slowest tool.** A long
+  `step.SideEffect` HTTP call counts against wall-clock. Pick a value
+  that accounts for tool latency, not just LLM latency.
+- **Reading `Cap` and `Actual` as integers.** Both are `float64` for
+  USD compatibility. Cast explicitly when comparing token counts.
+- **Treating budget trips as exceptional.** They're a normal signal in
+  prod — instrument the `starling_budget_exceeded_total{axis=...}`
+  metric and alert when an axis trips at unexpected frequency.
+
+
+## Where to next
+
+<Cards>
+  <Card title="Replay-driven tests" href="/docs/replay-tests" description="Capture a budget-tripping run as a regression fixture." />
+  <Card title="Operations" href="/docs/operations" description="Metrics, alerting, backups, deployment shapes." />
+</Cards>

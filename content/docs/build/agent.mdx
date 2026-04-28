@@ -1,0 +1,177 @@
+---
+title: Build your first agent
+description: Compose an Agent. Wire Provider, Log, Tools, Config, Budget, Metrics. What each field does, what defaults bite, what to set in dev vs prod.
+---
+
+`starling.Agent` is configuration plus dependencies. It holds no
+per-run state; all state lives in the event log. Two `Agent` instances
+pointing at the same log are interchangeable.
+
+## The struct
+
+```go
+type Agent struct {
+    Provider  provider.Provider   // required
+    Tools     []tool.Tool
+    Log       eventlog.EventLog   // required
+    Budget    *Budget
+    Config    Config
+    Namespace string              // optional run-id prefix
+    Metrics   *Metrics
+}
+```
+
+`Run` validates these before starting:
+
+| Field         | Required        | Failure                                                |
+|---------------|-----------------|--------------------------------------------------------|
+| `Provider`    | yes             | `"starling: Agent.Provider is nil"`                    |
+| `Log`         | yes             | `"starling: Agent.Log is nil"`                         |
+| `Config.Model`| yes (non-empty) | `"starling: Agent.Config.Model is empty"`              |
+| `Namespace`   | no, but format  | must not contain `/` (reserved separator)              |
+| `Tools`       | no              | tool `Name()`s must be unique within a single agent    |
+
+## Config
+
+```go
+type Config struct {
+    Model                  string
+    SystemPrompt           string
+    Params                 cborenc.RawMessage
+    MaxTurns               int           // 0 = unlimited
+    RequireRawResponseHash bool
+    AppVersion             string
+    EmitTimeout            time.Duration // 0 = no timeout
+    SkipSchemaCheck        bool
+    Logger                 *slog.Logger  // nil → slog.Default()
+}
+```
+
+| Field                    | Default            | Notes                                                                          |
+|--------------------------|--------------------|--------------------------------------------------------------------------------|
+| `Model`                  | required           | Provider-specific id, e.g. `"gpt-4o-mini"`, `"claude-haiku-4-5-20251001"`.    |
+| `SystemPrompt`           | `""`               | Hashed into `RunStarted.SystemPromptHash`. Changing it makes old runs diverge. |
+| `Params`                 | `nil`              | Vendor-specific param blob. Hashed into `RunStarted.ParamsHash`.               |
+| `MaxTurns`               | `0` (unlimited)    | Cap the ReAct loop. `0` is allowed but not recommended for production.         |
+| `RequireRawResponseHash` | `false`            | Fail any turn whose `ChunkEnd` lacks a 32-byte response digest. Audit-grade.   |
+| `AppVersion`             | `""`               | Stamped into `RunStarted` alongside the Starling version.                      |
+| `EmitTimeout`            | `0` (no timeout)   | Bounds each terminal-event append under `context.WithoutCancel`.               |
+| `SkipSchemaCheck`        | `false`            | Disables `eventlog.Preflight` on `Run` and `Resume`. Tests only.               |
+| `Logger`                 | `slog.Default()`   | Structured slog records for run lifecycle.                                     |
+
+## Minimal agent
+
+```go
+package main
+
+import (
+    "context"
+    "os"
+
+    starling "github.com/jerkeyray/starling"
+    "github.com/jerkeyray/starling/eventlog"
+    "github.com/jerkeyray/starling/provider/openai"
+)
+
+func main() {
+    prov, err := openai.New(openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+    if err != nil { panic(err) }
+
+    log, err := eventlog.NewSQLite("starling.db")
+    if err != nil { panic(err) }
+    defer log.Close()
+
+    a := &starling.Agent{
+        Provider: prov,
+        Log:      log,
+        Config:   starling.Config{Model: "gpt-4o-mini", MaxTurns: 8},
+    }
+
+    res, err := a.Run(context.Background(), "What is 2+2?")
+    if err != nil { panic(err) }
+    println(res.FinalText)
+}
+```
+
+## RunResult
+
+```go
+type RunResult struct {
+    RunID         string
+    FinalText     string
+    TurnCount     int
+    ToolCallCount int
+    TotalCostUSD  float64
+    InputTokens   int64
+    OutputTokens  int64
+    Duration      time.Duration
+    TerminalKind  event.Kind  // RunCompleted | RunFailed | RunCancelled
+    MerkleRoot    []byte
+}
+```
+
+All values recoverable from the log; `RunResult` is a convenience.
+
+## Resume after crash
+
+```go
+res, err := a.Resume(ctx, runID, "" /* extra message */)
+
+// Refuse to re-fire pending tools (use when tools are mutating):
+res, err := a.ResumeWith(ctx, runID, "", starling.WithReissueTools(false))
+```
+
+Sentinel errors you'll catch:
+
+| Error                       | Meaning                                                     |
+|-----------------------------|-------------------------------------------------------------|
+| `ErrRunNotFound`            | Resume target run id is absent from the log.                |
+| `ErrRunAlreadyTerminal`     | Resume target ended in a terminal event.                    |
+| `ErrPartialToolCall`        | `Resume` saw pending tools and `WithReissueTools(false)`.   |
+| `ErrRunInUse`               | Another writer advanced the chain mid-resume.               |
+| `ErrSchemaVersionMismatch`  | Recorded schema version is unsupported by this binary.      |
+
+## Namespace
+
+Run IDs are ULIDs. `Namespace = "support-agent"` produces ids like
+`support-agent/01HZ8…`. Useful when one `EventLog` holds runs from
+multiple agents. The separator is `/`; the namespace must not contain
+one.
+
+## Metrics
+
+```go
+import "github.com/prometheus/client_golang/prometheus"
+
+reg := prometheus.NewRegistry()
+metrics := starling.NewMetrics(reg)
+
+a := &starling.Agent{
+    Provider: prov,
+    Log:      log,
+    Metrics:  metrics, // nil = no metrics, runtime is no-op
+    Config:   starling.Config{Model: "gpt-4o-mini"},
+}
+```
+
+Metric names and labels are documented under [Operations](/docs/operations).
+
+## Dev vs prod defaults
+
+| Field                    | Dev                    | Prod                                  |
+|--------------------------|------------------------|---------------------------------------|
+| `Log`                    | `NewInMemory()`        | `NewSQLite(path)` or `NewPostgres(db)`|
+| `MaxTurns`               | small (3-4)            | bounded (8-16) — never `0`            |
+| `Budget`                 | optional               | always set, especially `MaxUSD`       |
+| `Metrics`                | nil                    | non-nil, scraped                      |
+| `RequireRawResponseHash` | false                  | true for audit-critical workloads     |
+| `EmitTimeout`            | `0`                    | `5 * time.Second` to bound shutdown   |
+| `SkipSchemaCheck`        | true (in tests only)   | false (default)                       |
+
+
+## Where to next
+
+<Cards>
+  <Card title="Write a tool" href="/docs/build/tools" description="Typed tools, side effects, retries, idempotency." />
+  <Card title="Wire providers" href="/docs/build/providers" description="OpenAI, Anthropic, Gemini, OpenRouter — pick one or swap mid-fleet." />
+</Cards>

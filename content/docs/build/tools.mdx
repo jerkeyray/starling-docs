@@ -1,0 +1,217 @@
+---
+title: Write a tool
+description: Typed tools from a Go function. Replay-safe side effects, retries on transient errors, idempotency, when to reach for tool.Tool directly.
+---
+
+A tool is anything implementing `tool.Tool`. The convenience wrapper
+`tool.Typed` derives the JSON Schema from your input type via Go
+reflection. Most tools should use it.
+
+## The interface
+
+```go
+type Tool interface {
+    Name() string
+    Description() string
+    Schema() json.RawMessage  // JSON Schema for input
+    Execute(ctx context.Context, input json.RawMessage) (json.RawMessage, error)
+}
+```
+
+## tool.Typed
+
+```go
+func Typed[In, Out any](
+    name, description string,
+    fn func(context.Context, In) (Out, error),
+) Tool
+```
+
+`In` must be a struct (LLM tool inputs are objects at the top level).
+The reflection layer panics at construction on:
+
+- `In` not a struct (use `struct{}` for parameter-less tools)
+- maps, interfaces, or recursive struct types in `In`
+- duplicate JSON tag names within `In`
+
+`Out` is JSON-marshalled. Empty results become `null`.
+
+`Execute` recovers panics inside `fn` and returns them wrapped with
+`tool.ErrPanicked` so the agent loop emits a `ToolCallFailed` instead
+of crashing the process.
+
+## A real tool
+
+```go
+import (
+    "context"
+    "fmt"
+    "time"
+
+    "github.com/jerkeyray/starling/step"
+    "github.com/jerkeyray/starling/tool"
+)
+
+type lookupIn struct {
+    ID string `json:"id" jsonschema:"description=Customer id"`
+}
+type lookupOut struct {
+    Name      string `json:"name"`
+    Plan      string `json:"plan"`
+    LookedUp  string `json:"looked_up_at"`
+}
+
+var customerLookup = tool.Typed(
+    "customer_lookup",
+    "Fetch customer name and plan by id.",
+    func(ctx context.Context, in lookupIn) (lookupOut, error) {
+        // step.SideEffect makes the HTTP call replay-safe: live runs hit
+        // the network, replay reads the recorded value out of the log.
+        out, err := step.SideEffect(ctx, "customer/"+in.ID, func() (lookupOut, error) {
+            return fetchCustomer(in.ID) // your real HTTP call
+        })
+        if err != nil { return lookupOut{}, err }
+        out.LookedUp = step.Now(ctx).UTC().Format(time.RFC3339)
+        return out, nil
+    },
+)
+```
+
+Three things this gets right:
+
+1. The HTTP call is wrapped in `step.SideEffect`. On replay, the
+   recorded result comes back without re-contacting your customer API.
+2. The timestamp uses `step.Now(ctx)`, not `time.Now()`. Replay returns
+   the recorded time, so the tool's output bytes match the recording.
+3. The `step.SideEffect` name (`"customer/"+id`) is stable per logical
+   call. Replay looks up by name; reusing the same name for the same
+   logical effect is the contract.
+
+## Replay safety: what to wrap, what to not
+
+| Inside a tool, you wrote… | Replay-safe?                      | Fix                                   |
+|---------------------------|-----------------------------------|---------------------------------------|
+| `time.Now()`              | No                                | `step.Now(ctx)`                       |
+| `rand.Intn(...)`          | No                                | `step.Random(ctx)` (returns `uint64`) |
+| `http.Get(...)`           | No                                | `step.SideEffect(ctx, "name", ...)`   |
+| `os.ReadFile(...)`        | No                                | `step.SideEffect(...)`                |
+| pure compute, no I/O      | Yes                               | nothing                               |
+| reading a constant        | Yes                               | nothing                               |
+
+Calling `step.Now`, `step.Random`, or `step.SideEffect` outside of an
+active agent run **panics** — the helpers require a `ctx` derived from
+`Agent.Run`. This is the contract; don't call them from background
+goroutines you fork inside a tool without propagating ctx.
+
+## Retries on transient errors
+
+Tools that hit flaky services should mark their errors retryable:
+
+```go
+import "github.com/jerkeyray/starling/tool"
+
+func fetchCustomer(id string) (lookupOut, error) {
+    resp, err := http.Get("https://api.example.com/customers/" + id)
+    if err != nil {
+        return lookupOut{}, fmt.Errorf("customer lookup: %w", tool.ErrTransient)
+    }
+    if resp.StatusCode >= 500 {
+        return lookupOut{}, fmt.Errorf("upstream %d: %w", resp.StatusCode, tool.ErrTransient)
+    }
+    // ...
+}
+```
+
+Then declare the tool idempotent so the runtime retries:
+
+```go
+import "github.com/jerkeyray/starling/step"
+
+call := step.ToolCall{
+    Name:        "customer_lookup",
+    Args:        argsJSON,
+    Idempotent:  true,
+    MaxAttempts: 3,
+    // Backoff defaults to 100ms × 2 with 25% jitter, capped at 10s.
+}
+result, err := step.CallTool(ctx, call)
+```
+
+`step.ToolCall` fields:
+
+| Field         | Type                              | Default if zero                   |
+|---------------|-----------------------------------|-----------------------------------|
+| `CallID`      | string                            | minted at execution               |
+| `TurnID`      | string                            | required                          |
+| `Name`        | string                            | required                          |
+| `Args`        | `json.RawMessage`                 | required                          |
+| `Idempotent`  | bool                              | false (no retries)                |
+| `MaxAttempts` | int                               | `1` (no retries) when zero        |
+| `Backoff`     | `func(attempt int) time.Duration` | `100ms × 2^n`, jitter 25%, cap 10s|
+
+Each retry emits its own `ToolCallScheduled`+`ToolCallCompleted/Failed`
+pair under the same `CallID` with incrementing `Attempt`.
+
+## Parallel tool calls
+
+When the model schedules multiple tools in one turn, the agent
+fans them out:
+
+```go
+results, err := step.CallTools(ctx, []step.ToolCall{a, b, c})
+```
+
+Concurrency cap is `step.DefaultMaxParallelTools = 8`. Replay
+re-executes tools in the recorded completion order so byte comparison
+is deterministic.
+
+## Built-in tools
+
+`tool/builtin/` ships two reference implementations:
+
+```go
+import "github.com/jerkeyray/starling/tool/builtin"
+
+httpFetch := builtin.Fetch()                // HTTP GET; 15s timeout, 1 MiB cap
+readFile, err := builtin.ReadFile("./data") // path-escape rejected
+```
+
+`Fetch()` takes no options. `ReadFile(baseDir)` rejects `..`, absolute
+paths, and symlinks that escape the base directory. Both are good
+templates for your own tools.
+
+## When to skip tool.Typed
+
+Reach for the raw `tool.Tool` interface when you need:
+
+- A schema you generate yourself (e.g., dynamic enums from a database
+  fetched at agent construction).
+- A tool whose input doesn't fit a Go struct (extremely rare).
+- Tight control over error formatting in `Execute`.
+
+Otherwise stay with `tool.Typed`. It catches more at compile time and
+keeps the schema honest.
+
+## Anti-patterns
+
+- **Reading `time.Now()` directly.** Replay diverges every time.
+  Use `step.Now(ctx)`.
+- **Forking a goroutine without propagating ctx.** `step.*` helpers
+  panic if ctx is detached. Pass `ctx` into `errgroup.WithContext` or
+  similar.
+- **Naming a `step.SideEffect` with a value that varies between runs**
+  (e.g., the current timestamp). The name *is* the lookup key. Use a
+  stable per-logical-call key.
+- **Returning a tool error wrapping `tool.ErrTransient` for non-retryable
+  failures.** Wrap only when the runtime should try again. Auth errors,
+  bad input, and 4xx responses are not transient.
+- **Mutating tool arguments inside `Execute`.** The agent records `Args`
+  before dispatch; mutations don't appear in the log.
+
+
+## Where to next
+
+<Cards>
+  <Card title="Wire providers" href="/docs/build/providers" description="Pick a model, swap endpoints, OpenAI-compatible base URLs." />
+  <Card title="MCP tools" href="/docs/mcp" description="Mount remote MCP servers as Starling tools." />
+</Cards>

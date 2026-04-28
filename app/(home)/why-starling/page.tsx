@@ -2,25 +2,25 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { Metadata } from 'next';
 
-const featuresTitle = 'Features';
-const featuresDescription =
-  'Eight categories, forty-odd features. Hash-chained event log, deterministic replay, Resume, cost budgets, four providers, MCP, Postgres + SQLite, Prometheus + OpenTelemetry, embedded inspector.';
+const pageTitle = 'Why Starling';
+const pageDescription =
+  'Eight categories of capability. Hash-chained event log, deterministic replay, Resume, cost budgets, four providers, MCP, Postgres + SQLite, Prometheus + OpenTelemetry, embedded inspector.';
 
 export const metadata: Metadata = {
-  title: featuresTitle,
-  description: featuresDescription,
-  alternates: { canonical: '/features' },
+  title: pageTitle,
+  description: pageDescription,
+  alternates: { canonical: '/why-starling' },
   openGraph: {
     type: 'website',
-    title: `${featuresTitle} · Starling`,
-    description: featuresDescription,
-    url: '/features',
+    title: `${pageTitle} · Starling`,
+    description: pageDescription,
+    url: '/why-starling',
     siteName: 'Starling',
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${featuresTitle} · Starling`,
-    description: featuresDescription,
+    title: `${pageTitle} · Starling`,
+    description: pageDescription,
   },
 };
 
@@ -290,7 +290,7 @@ const accent = {
   },
 } as const;
 
-export default function FeaturesPage() {
+export default function WhyStarlingPage() {
   return (
     <main className="flex flex-1 flex-col">
       <Hero />
@@ -311,17 +311,17 @@ function Hero() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-fd-foreground/90" />
       <div className="relative mx-auto max-w-5xl px-5 py-16 sm:px-6 sm:py-20 lg:py-24">
         <h1 className="mb-5 text-balance text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-          Everything in the
-          <br />
+          why{' '}
           <span className="relative inline-block text-cyan-500">
-            runtime
+            starling
             <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-cyan-500" />
           </span>
           .
         </h1>
         <p className="max-w-2xl text-balance text-base leading-relaxed text-fd-muted-foreground sm:text-lg">
-          A flat list of what Starling actually ships. Eight categories,
-          forty-odd features, all wired around the event log as source of truth.
+          eight categories of capability, all wired around the event log as
+          source of truth. audit, replay, recovery, cost control, providers,
+          tools, storage, observability.
         </p>
       </div>
     </section>
@@ -336,8 +336,8 @@ function SectionIndex() {
   return (
     <section className="border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
-        <p className="mb-4 text-[11px] font-bold uppercase tracking-widest text-fd-muted-foreground">
-          Jump to
+        <p className="mb-4 text-[11px] font-bold tracking-wide text-fd-muted-foreground sm:text-xs">
+          jump to
         </p>
         <div className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-[13px] sm:text-sm">
           {sections.map((s, i) => {
@@ -353,7 +353,7 @@ function SectionIndex() {
                 </span>
                 <span className={`size-1.5 translate-y-[-2px] ${a.bar}`} aria-hidden />
                 <span className="font-bold text-fd-foreground transition group-hover:underline">
-                  {s.tag}
+                  {s.tag.toLowerCase()}
                 </span>
               </a>
             );
@@ -372,63 +372,48 @@ function FeatureSection({
   index: number;
 }) {
   const a = accent[section.accent];
-  const flip = index % 2 === 1;
   return (
     <section
       id={slug(section.tag)}
       className="relative scroll-mt-20 overflow-hidden border-b-2 border-fd-foreground/90 px-5 py-14 sm:px-6 sm:py-20 odd:bg-fd-foreground/[0.02]"
     >
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10 grid gap-6 sm:mb-14 lg:grid-cols-[minmax(0,22rem)_1fr] lg:items-end lg:gap-12">
-          <div className={flip ? 'lg:order-2 lg:text-right' : ''}>
-            <div className={`mb-4 flex items-center gap-3 ${flip ? 'lg:justify-end' : ''}`}>
-              <span className="font-mono text-[11px] font-bold tracking-widest text-fd-muted-foreground">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <span className={`h-[3px] w-12 ${a.bar}`} aria-hidden />
-              <span className={`text-[11px] font-bold uppercase tracking-widest ${a.text}`}>
-                {section.tag}
-              </span>
-            </div>
-            <h2 className="text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl md:text-5xl">
-              {section.heading}
-            </h2>
+        <div className="mb-10 max-w-3xl sm:mb-14">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="font-mono text-[11px] font-bold tracking-wide text-fd-muted-foreground">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <span className={`h-[3px] w-12 ${a.bar}`} aria-hidden />
+            <span className={`text-[11px] font-bold tracking-wide sm:text-xs ${a.text}`}>
+              {section.tag.toLowerCase()}
+            </span>
           </div>
-          <p
-            className={`max-w-xl text-sm leading-relaxed text-fd-muted-foreground sm:text-base ${
-              flip ? 'lg:order-1 lg:max-w-md' : ''
-            }`}
-          >
-            {section.lede}
+          <h2 className="mb-3 text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl md:text-5xl">
+            {section.heading.toLowerCase()}
+          </h2>
+          <p className="text-sm leading-relaxed text-fd-muted-foreground sm:text-base">
+            {section.lede.toLowerCase()}
           </p>
         </div>
 
-        <ul
-          className={`grid gap-x-10 gap-y-0 border-t-2 ${a.rule} md:grid-cols-2`}
-        >
-          {section.items.map((it, i) => (
-            <li
-              key={it.title}
-              className={`relative grid grid-cols-[auto_1fr] gap-x-4 border-b ${a.rule} py-5 sm:py-6`}
-            >
+        <div className="grid gap-x-12 gap-y-8 md:grid-cols-2">
+          {section.items.map((it) => (
+            <div key={it.title} className="flex gap-4">
               <span
-                className="font-mono text-[11px] font-bold tracking-widest text-fd-muted-foreground/70"
+                className={`mt-2 inline-block h-2 w-2 shrink-0 ${a.bar}`}
                 aria-hidden
-              >
-                {String(i + 1).padStart(2, '0')}
-              </span>
+              />
               <div>
-                <h3 className="mb-1.5 text-[15px] font-bold leading-tight sm:text-base">
-                  <span className={`mr-2 inline-block size-1.5 align-middle ${a.bar}`} aria-hidden />
-                  {it.title}
+                <h3 className="mb-1 text-[15px] font-bold leading-tight sm:text-base">
+                  {it.title.toLowerCase()}
                 </h3>
                 <p className="text-sm leading-relaxed text-fd-muted-foreground">
                   {it.body}
                 </p>
               </div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
     </section>
   );
@@ -440,25 +425,25 @@ function CTA() {
       <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
       <div className="relative mx-auto flex max-w-4xl flex-col items-start gap-6 sm:items-center sm:text-center">
         <h2 className="text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-          Ship one. Replay forever.
+          ship one. replay forever.
         </h2>
         <p className="max-w-xl text-sm leading-relaxed text-fd-muted-foreground sm:text-base">
-          The runtime is small on purpose. The wedge is production debugging
+          the runtime is small on purpose. the wedge is production debugging
           via replay, not framework breadth.
         </p>
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <Link
             href="/docs/quickstart"
-            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadow}`}
+            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-5 py-2.5 text-sm font-bold text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:text-base ${hardShadow}`}
           >
-            Quickstart
+            quickstart
             <ArrowRight className="size-4" />
           </Link>
           <Link
             href="/docs/concepts"
-            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadow}`}
+            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-5 py-2.5 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:text-base ${hardShadow}`}
           >
-            Read concepts
+            read concepts
           </Link>
         </div>
       </div>

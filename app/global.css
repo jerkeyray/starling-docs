@@ -21,7 +21,7 @@ html > body[data-scroll-locked] {
   min-height: 2.75rem;
 }
 
-#nd-nav a[href='/features'],
+#nd-nav a[href='/why-starling'],
 #nd-nav a[href='/docs'] {
   padding-block: 0.625rem !important;
   padding-inline: 0.875rem !important;
@@ -29,7 +29,7 @@ html > body[data-scroll-locked] {
   font-weight: 600;
 }
 
-#nd-nav a[href='/features']:hover,
+#nd-nav a[href='/why-starling']:hover,
 #nd-nav a[href='/docs']:hover {
   background: color-mix(in oklab, var(--color-fd-foreground) 10%, transparent);
 }

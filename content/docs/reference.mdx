@@ -184,7 +184,7 @@ type ToolCall struct {
 
 - **`CallTool(ctx, c)`** — sequential dispatch.
 - **`CallTools(ctx, calls)`** — fan-out with a semaphore (cap is
-  `Config.MaxParallelTools`, default 8).
+  `step.DefaultMaxParallelTools`, 8).
 - Retries kick in on `tool.ErrTransient` when `Idempotent` and
   `MaxAttempts > 1`. `NewCallID()` mints fresh IDs.
 

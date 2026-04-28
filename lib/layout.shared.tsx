@@ -14,19 +14,19 @@ function GithubMark({ className = 'size-4' }: { className?: string }) {
 
 export function baseOptions(): BaseLayoutProps {
   return {
-    nav: { title: appName, url: '/' },
+    nav: { title: 'starling', url: '/' },
     githubUrl: repoURL,
   };
 }
 
 export function homeOptions(): BaseLayoutProps {
   return {
-    nav: { title: appName, url: '/' },
+    nav: { title: 'starling', url: '/' },
     searchToggle: { enabled: false },
     themeSwitch: { enabled: false },
     links: [
-      { type: 'main', text: 'Features', url: '/features' },
-      { type: 'main', text: 'Docs', url: '/docs', active: 'nested-url' },
+      { type: 'main', text: 'why starling', url: '/why-starling' },
+      { type: 'main', text: 'docs', url: '/docs', active: 'nested-url' },
       {
         type: 'icon',
         url: repoURL,

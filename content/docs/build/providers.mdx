@@ -1,0 +1,239 @@
+---
+title: Wire providers
+description: Pick a model. OpenAI, Anthropic, Gemini, OpenRouter, plus any OpenAI-compatible endpoint via WithBaseURL.
+---
+
+`provider.Provider` is the streaming-completion abstraction. Adapters
+share a request shape, a chunk state machine, and a conformance suite.
+Pick one — switching is a one-line change.
+
+## The interface
+
+```go
+type Provider interface {
+    Info() Info
+    Stream(ctx context.Context, req *Request) (EventStream, error)
+}
+
+type Capabler interface {
+    Capabilities() Capabilities
+}
+
+type Capabilities struct {
+    Tools         bool
+    ToolChoice    bool
+    Reasoning     bool
+    StopSequences bool
+    CacheControl  bool
+    RequestID     bool
+}
+```
+
+Adapters that don't support a feature report `false` from
+`Capabilities()`. The conformance suite skips capability-gated
+assertions when an adapter reports `false`, so adapter authors don't
+have to fake support.
+
+## In-tree adapters
+
+| Package                    | Constructor                          | Default API version |
+|----------------------------|--------------------------------------|---------------------|
+| `provider/openai`          | `openai.New(opts...)`                | `"v1"`              |
+| `provider/anthropic`       | `anthropic.New(opts...)`             | `"2023-06-01"`      |
+| `provider/gemini`          | `gemini.New(opts...)`                | `"v1beta"`          |
+| `provider/openrouter`      | `openrouter.New(opts...)`            | OpenRouter default  |
+
+Each `New` returns `(provider.Provider, error)` — the interface,
+not a struct pointer. Use the error path: missing API keys fail at
+construction, not Run.
+
+## OpenAI
+
+```go
+import "github.com/jerkeyray/starling/provider/openai"
+
+prov, err := openai.New(
+    openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
+)
+```
+
+| Option                      | Purpose                                                              |
+|-----------------------------|----------------------------------------------------------------------|
+| `WithAPIKey(key)`           | API key. Required unless your endpoint is unauthenticated.           |
+| `WithBaseURL(url)`          | OpenAI-compatible endpoints (Groq, Together, Ollama, vLLM, Azure).   |
+| `WithOrganization(org)`     | OpenAI org id; sets `OpenAI-Organization` header.                    |
+| `WithAPIVersion(v)`         | Override the URL prefix (default `"v1"`).                            |
+| `WithProviderID(id)`        | Override `Info().ID` (useful when the same code talks to many APIs). |
+| `WithHTTPClient(c)`         | Custom `*http.Client` (timeouts, proxies, custom transport).         |
+
+OpenAI-compatible endpoint examples:
+
+```go
+// Groq
+prov, _ := openai.New(
+    openai.WithBaseURL("https://api.groq.com/openai/v1"),
+    openai.WithAPIKey(os.Getenv("GROQ_API_KEY")),
+    openai.WithProviderID("groq"),
+)
+
+// Local Ollama
+prov, _ := openai.New(
+    openai.WithBaseURL("http://localhost:11434/v1"),
+    openai.WithProviderID("ollama"),
+)
+
+// Azure OpenAI
+prov, _ := openai.New(
+    openai.WithBaseURL("https://YOUR-RESOURCE.openai.azure.com/openai"),
+    openai.WithAPIKey(os.Getenv("AZURE_OPENAI_KEY")),
+    openai.WithAPIVersion("2024-08-01-preview"),
+)
+```
+
+## Anthropic
+
+```go
+import "github.com/jerkeyray/starling/provider/anthropic"
+
+prov, err := anthropic.New(
+    anthropic.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
+)
+```
+
+| Option                | Purpose                                                  |
+|-----------------------|----------------------------------------------------------|
+| `WithAPIKey(key)`     | API key.                                                 |
+| `WithBaseURL(url)`    | Custom base (proxies, gateways).                         |
+| `WithAPIVersion(v)`   | `"anthropic-version"` header (default `"2023-06-01"`).   |
+| `WithProviderID(id)`  | Override `Info().ID`.                                    |
+| `WithHTTPClient(c)`   | Custom HTTP client.                                      |
+
+Capabilities reported by Anthropic: tool use, extended thinking with
+per-block signatures, prompt caching metadata. Cache-control hints are
+attached via the `Params` field on the `Request` (CBOR blob).
+
+## Gemini
+
+```go
+import "github.com/jerkeyray/starling/provider/gemini"
+
+prov, err := gemini.New(
+    gemini.WithAPIKey(os.Getenv("GEMINI_API_KEY")),
+)
+```
+
+| Option                | Purpose                                              |
+|-----------------------|------------------------------------------------------|
+| `WithAPIKey(key)`     | API key.                                             |
+| `WithBaseURL(url)`    | Custom base.                                         |
+| `WithAPIVersion(v)`   | URL prefix (default `"v1beta"`).                     |
+| `WithProviderID(id)`  | Override `Info().ID`.                                |
+| `WithHTTPClient(c)`   | Custom HTTP client.                                  |
+
+## OpenRouter
+
+```go
+import "github.com/jerkeyray/starling/provider/openrouter"
+
+prov, err := openrouter.New(
+    openrouter.WithAPIKey(os.Getenv("OPENROUTER_API_KEY")),
+    openrouter.WithHTTPReferer("https://your-app.com"),
+    openrouter.WithXTitle("Your App"),
+)
+```
+
+| Option                   | Purpose                                                 |
+|--------------------------|---------------------------------------------------------|
+| `WithAPIKey(key)`        | OpenRouter key.                                         |
+| `WithBaseURL(url)`       | Override default endpoint.                              |
+| `WithHTTPReferer(url)`   | OpenRouter attribution header (`HTTP-Referer`).         |
+| `WithXTitle(title)`      | OpenRouter attribution header (`X-Title`).              |
+| `WithProviderID(id)`     | Override `Info().ID`.                                   |
+| `WithHTTPClient(c)`      | Custom HTTP client.                                     |
+
+OpenRouter is a thin wrapper over the OpenAI adapter — same chunk
+contract, plus attribution headers. Use OpenAI-style model strings.
+
+## The streaming chunk contract
+
+Adapters yield `StreamChunk` values. Kinds:
+
+```text
+ChunkText
+ChunkReasoning
+ChunkRedactedThinking
+ChunkToolUseStart
+ChunkToolUseDelta
+ChunkToolUseEnd
+ChunkUsage
+ChunkEnd
+```
+
+`step.LLMCall` enforces the state machine:
+
+- No EOF before `ChunkEnd`.
+- No duplicate `ChunkToolUseStart` for the same call id.
+- No chunks after `ChunkEnd`.
+- `ChunkUsage` is optional; budgets enforce mid-stream when it arrives.
+
+If an adapter violates the contract, `step.ErrInvalidStream` is the
+typed error.
+
+## Capability-gated features
+
+Check what an adapter supports before enabling a feature:
+
+```go
+if c, ok := prov.(provider.Capabler); ok {
+    caps := c.Capabilities()
+    if caps.CacheControl {
+        // attach cache markers via Params
+    }
+    if !caps.Reasoning {
+        // don't ask for chain-of-thought
+    }
+}
+```
+
+The conformance suite (`provider/conformance/`) is the contract test
+adapter authors run against fixtures. If you write your own adapter,
+plug it into the suite — it's the cheapest way to get the chunk
+ordering, tool id stability, and cancellation right.
+
+## Switching providers
+
+Mid-fleet swap is one line:
+
+```go
+// Before
+prov, _ := openai.New(openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+a.Config.Model = "gpt-4o-mini"
+
+// After
+prov, _ := anthropic.New(anthropic.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")))
+a.Config.Model = "claude-haiku-4-5-20251001"
+```
+
+Note: changing the provider or model **invalidates replay fixtures**.
+`RunStarted` records `ProviderID`, `ModelID`, and a hash of the
+`Params` blob. Replay against an old fixture with a new provider
+fails fast on `RunStarted` payload divergence.
+
+## Anti-patterns
+
+- **Hard-coding the API key in source.** Always read from env.
+- **Ignoring the error from `New`.** Construction validates the
+  config; treating it as infallible hides typos.
+- **Using one provider for production but a different one for replay
+  fixtures.** Replay only works against the recorded provider; pick
+  one and stick to it per fixture.
+- **Setting `WithProviderID` to a value that varies per process.**
+  The id is hashed into `RunStarted`. Make it stable.
+
+
+## Where to next
+
+<Cards>
+  <Card title="Persist runs" href="/docs/build/persistence" description="In-memory, SQLite, Postgres — pick a backend." />
+  <Card title="Bound your costs" href="/docs/build/budgets" description="Token, USD, wall-clock, per-turn caps enforced inside the runtime." />
+</Cards>

@@ -1,0 +1,207 @@
+---
+title: Replay-driven tests
+description: Capture a run once. Assert byte-identity forever. Catch behavior drift in CI before it ships.
+---
+
+The replay model isn't just for production debugging. Treat a recorded
+run as a test fixture, and `starling.Replay` becomes a regression test
+that fails the moment your agent's logic shifts: refactored a tool,
+changed a prompt, swapped a model, upgraded a dependency.
+
+## The shape
+
+1. Record a real run once, against a real provider.
+2. Commit the resulting event log as a test fixture.
+3. In CI, replay the fixture against the same agent wiring (no provider
+   network call). Replay returns `nil` on byte-identical re-execution
+   and a typed `*replay.Divergence` otherwise.
+
+That's it. No mocks, no recorded HTTP fixtures, no snapshot dance.
+
+## Capture a fixture
+
+Run the agent once with a SQLite log under your test data dir:
+
+```go title="capture/main.go"
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+
+    starling "github.com/jerkeyray/starling"
+    "github.com/jerkeyray/starling/eventlog"
+    "github.com/jerkeyray/starling/provider/openai"
+    "github.com/jerkeyray/starling/tool"
+)
+
+func main() {
+    log, err := eventlog.NewSQLite("testdata/golden.db")
+    if err != nil { panic(err) }
+    defer log.Close()
+
+    prov, err := openai.New(openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+    if err != nil { panic(err) }
+
+    a := newAgent(prov, log) // your Agent constructor
+    res, err := a.Run(context.Background(), "What is the current UTC time?")
+    if err != nil { panic(err) }
+
+    fmt.Println("captured", res.RunID)
+}
+```
+
+Run it once, commit `testdata/golden.db` and the captured `runID`. From
+this point on you never touch the network for this test.
+
+## Replay in CI
+
+```go title="agent_test.go"
+package agent_test
+
+import (
+    "context"
+    "errors"
+    "testing"
+
+    starling "github.com/jerkeyray/starling"
+    "github.com/jerkeyray/starling/eventlog"
+    "github.com/jerkeyray/starling/replay"
+)
+
+const goldenRunID = "01HZ8PQ5...XKJ3"
+
+func TestAgentMatchesRecording(t *testing.T) {
+    log, err := eventlog.NewSQLite("testdata/golden.db", eventlog.WithReadOnly())
+    if err != nil { t.Fatal(err) }
+    t.Cleanup(func() { _ = log.Close() })
+
+    a := newAgent(stubProvider(), log) // any non-nil provider; Replay swaps it
+
+    err = starling.Replay(context.Background(), log, goldenRunID, a)
+    if err == nil {
+        return // byte-identical
+    }
+
+    var d *replay.Divergence
+    if errors.As(err, &d) {
+        t.Fatalf("agent diverged from recording at seq=%d kind=%s class=%s reason=%s",
+            d.Seq, d.Kind, d.Class, d.Reason)
+    }
+    t.Fatal(err)
+}
+```
+
+`starling.Replay` shallow-clones the Agent and overrides `Provider`
+with a synthetic replay provider that yields chunks from the recording.
+Your real provider is never contacted. The original `Agent.Provider`
+must still be non-nil because `validate()` runs before the swap; any
+stub will do.
+
+Tools, on the other hand, **re-execute live**. The tool's `Execute`
+method runs and its output bytes are compared to the recorded
+`ToolCallCompleted` payload. A deterministic tool replays cleanly. A
+tool that reads `time.Now()` directly produces a new timestamp on
+replay and diverges. Wrap non-deterministic reads in `step.Now`,
+`step.Random`, or `step.SideEffect` so replay returns the recorded
+value.
+
+## What "byte-identical" means
+
+Replay compares each event the live loop emits to the recording at the
+same `seq`. A divergence falls into one of four classes:
+
+| `Class`     | What it means                                                         |
+|-------------|-----------------------------------------------------------------------|
+| `kind`      | The loop produced a different event type at this `seq`.               |
+| `payload`   | Same kind, different bytes.                                           |
+| `turn_id`   | A turn started under a different `TurnID` than recorded.              |
+| `exhausted` | The loop ran past the end of the recording (extra event).             |
+
+The first divergence is reported. The recording is the source of truth.
+
+## Make tools replay-safe before you record
+
+Recording captures the values the loop consumed at `step` boundaries.
+Anything outside `step` will diverge on every replay because it isn't
+recorded. Common culprits:
+
+- Reading `time.Now()` directly inside a tool. Use `step.Now(ctx)`.
+- Calling `rand.Intn` inside a tool or middleware. Use `step.Random(ctx)`.
+- Hitting an HTTP endpoint inside a tool without `step.SideEffect`.
+- Using `os.Getenv` mid-run. Read once at construction or wrap in a
+  `step.SideEffect` keyed on the variable name.
+
+If your test passes once and fails on the next run with no code change,
+something non-deterministic leaked past `step`.
+
+## What divergence catches
+
+Real things that flip the test from green to red:
+
+- A model upgrade that changes tool-plan order.
+- A prompt edit that changes `RunStarted.SystemPromptHash`.
+- A tool that started returning slightly different JSON (whitespace,
+  field reordering, added field).
+- A schema migration that changed the canonical CBOR shape of a
+  payload.
+- A library upgrade that changed RNG seeding or a cost-table value.
+
+Each is a real signal that today's build does something different from
+the day you recorded the fixture.
+
+## Multiple fixtures
+
+Capture more than one run, one per behavior you care about: happy
+path, tool-error path, budget trip, multi-turn refinement. Each gets a
+test. The fixtures live under `testdata/`; the test file picks a
+`runID` per case.
+
+For sprawling fixtures, the `starling export` CLI dumps a run to NDJSON
+so you can review what's recorded and trim noise before committing.
+
+## CI shape
+
+A typical CI job looks like:
+
+```yaml title=".github/workflows/test.yml"
+- name: Replay golden runs
+  run: go test ./... -run TestAgentMatches -count=1
+```
+
+No `OPENAI_API_KEY`, no Anthropic key, no network. The fixture is the
+contract. If your test suite fails on a PR that should be a no-op,
+replay points at the exact `seq` where today's behavior diverged from
+the day the fixture was recorded.
+
+## Limits
+
+Replay verifies *behavior under the same wiring*. It does not catch:
+
+- Bugs in code paths your fixture didn't exercise. Coverage still
+  matters; pick fixtures deliberately.
+- Provider regressions on the *real* network. That's still on you to
+  monitor with the metrics from [Operations](/docs/operations).
+- Issues that only manifest under concurrency or scale. Replay is
+  single-run.
+
+What it does catch is the class of change most agent codebases miss
+entirely: *"my code looks the same and the model still works, but
+the agent quietly does something different now."*
+
+
+## Where to next
+
+<Cards>
+  <Card
+    title="Concepts"
+    href="/docs/concepts"
+    description="The determinism contract behind why this works."
+  />
+  <Card
+    title="Reference · replay"
+    href="/docs/reference#replay"
+    description="Verify, Stream, Divergence, ErrNonDeterminism."
+  />
+</Cards>

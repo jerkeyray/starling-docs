@@ -148,7 +148,7 @@ export async function GET(
           }}
         >
           <span>Event-sourced agent runtime for Go</span>
-          <span style={{ color: '#00ADD8' }}>jerkeyray.com</span>
+          <span style={{ color: '#00ADD8' }}>github.com/jerkeyray/starling</span>
         </div>
       </div>
     ),

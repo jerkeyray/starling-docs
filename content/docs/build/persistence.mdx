@@ -1,0 +1,248 @@
+---
+title: Persist runs
+description: Pick a backend. In-memory for tests, SQLite for single-host, Postgres for multi-host. Migrations, preflight, read-only inspectors.
+---
+
+`eventlog.EventLog` is the persistence interface. Three built-in
+backends share it; your code only sees the interface, so swapping is a
+constructor change.
+
+## The interface
+
+```go
+type EventLog interface {
+    Append(ctx context.Context, runID string, ev event.Event) error
+    Read(ctx context.Context, runID string) ([]event.Event, error)
+    Stream(ctx context.Context, runID string) (<-chan event.Event, error)
+    Close() error
+}
+
+type RunLister interface {
+    ListRuns(ctx context.Context) ([]RunSummary, error)
+}
+
+type RunSummary struct {
+    RunID        string
+    StartedAt    time.Time
+    LastSeq      uint64
+    TerminalKind event.Kind
+}
+```
+
+All three built-in backends satisfy `RunLister` (the inspector uses it).
+
+## Picking a backend
+
+| Backend                  | Use when                                                                    | Avoid when                                          |
+|--------------------------|-----------------------------------------------------------------------------|-----------------------------------------------------|
+| `NewInMemory()`          | Tests, demos, ephemeral CLIs.                                               | Anything you want to replay later.                  |
+| `NewSQLite(path, ...)`   | Single-host services, edge nodes. WAL mode, one writer, many readers.       | Multi-host writers (no cross-host locking).         |
+| `NewPostgres(db, ...)`   | Multi-host services, regulated workloads, anything wanting PITR.            | Workloads where the DB is unavailable for stretches.|
+
+## In-memory
+
+```go
+log := eventlog.NewInMemory()
+```
+
+No migration, no schema check, no persistence. The whole log is gone
+when the process exits. Useful for `go test` and one-shot CLIs.
+
+## SQLite
+
+```go
+log, err := eventlog.NewSQLite("starling.db")
+if err != nil { return err }
+defer log.Close()
+```
+
+What you get:
+
+- **WAL mode + `synchronous=NORMAL`** — fast appends, fsync on commit.
+- **Auto-migration on open** — first open installs the schema; later
+  opens migrate forward to the binary's schema version.
+- **Per-run `_txlock=immediate`** — one writer, many readers.
+- **File permissions** — `0600`, owned by the agent user.
+
+Options:
+
+| Option                | Purpose                                                             |
+|-----------------------|---------------------------------------------------------------------|
+| `WithReadOnly()`      | Open with `mode=ro`. `Append` returns `ErrReadOnly`. Inspector mode.|
+
+Read-only example (e.g., a separate inspector binary against the same
+file):
+
+```go
+log, err := eventlog.NewSQLite("starling.db", eventlog.WithReadOnly())
+```
+
+You can backup a live SQLite log without stopping the agent:
+
+```bash
+sqlite3 starling.db ".backup /tmp/starling-backup.db"
+```
+
+## Postgres
+
+```go
+import (
+    _ "github.com/jackc/pgx/v5/stdlib"
+    "github.com/jerkeyray/starling/eventlog"
+)
+
+db, err := sql.Open("pgx", os.Getenv("DATABASE_URL"))
+if err != nil { return err }
+db.SetMaxOpenConns(8)
+
+log, err := eventlog.NewPostgres(db, eventlog.WithAutoMigratePG())
+if err != nil { return err }
+defer log.Close()
+```
+
+What you get:
+
+- **Per-run `pg_advisory_xact_lock`** on the run id hash — appenders to
+  the same run serialize; different runs are independent.
+- **Multi-host safe** — any number of writers across hosts.
+- **PITR / replication** — standard Postgres tooling works.
+- **Postgres ≥ 11** required (uses `hashtextextended`).
+
+Options:
+
+| Option                  | Purpose                                                              |
+|-------------------------|----------------------------------------------------------------------|
+| `WithAutoMigratePG()`   | Run `InstallSchema` at open. Without it, run migrations explicitly.  |
+| `WithReadOnlyPG()`      | `Append` returns `ErrReadOnly`. Inspector mode.                      |
+
+Use a Postgres role with the minimum privileges you need:
+
+```sql
+-- writer
+GRANT SELECT, INSERT ON eventlog_events TO starling_writer;
+-- reader (inspector)
+GRANT SELECT ON eventlog_events TO starling_reader;
+```
+
+## Migrations
+
+```go
+import "github.com/jerkeyray/starling/eventlog"
+
+// Print current version.
+v, err := eventlog.SchemaVersion(ctx, log)
+
+// Apply pending migrations (forward-only).
+report, err := eventlog.Migrate(ctx, log)
+
+// Dry-run for CI.
+report, err := eventlog.Migrate(ctx, log, eventlog.WithDryRun())
+```
+
+CLI equivalents:
+
+```bash
+starling schema-version /var/lib/starling/log.db
+starling migrate /var/lib/starling/log.db
+starling migrate --dry-run /var/lib/starling/log.db
+```
+
+## Preflight
+
+`Agent.Run` and `Agent.Resume` call `eventlog.Preflight(ctx, log)` on
+startup. It returns:
+
+- `nil` if the schema matches.
+- `ErrSchemaOutdated` if the database is older than the binary
+  (run `Migrate`).
+- `ErrSchemaTooNew` if the database is newer than the binary
+  (deploy a newer binary or rollback the schema).
+
+In-memory backends skip the check (return `nil`). Disable with
+`Config.SkipSchemaCheck = true` in tests only.
+
+## Validation
+
+`eventlog.Validate(events)` re-checks an entire run end to end. Use it
+in CI to verify a recorded fixture hasn't drifted:
+
+```go
+events, err := log.Read(ctx, runID)
+if err != nil { return err }
+if err := eventlog.Validate(events); err != nil {
+    // wraps ErrLogCorrupt with a diagnostic.
+}
+```
+
+`Validate` checks:
+
+1. Slice non-empty, `events[0].Seq == 1`, monotonic seq with no gaps.
+2. `RunID` consistent across all events.
+3. Hash chain unbroken.
+4. Exactly one terminal event, last in the slice.
+5. First event is `RunStarted` with a supported `SchemaVersion`.
+6. `TurnStarted` paired with a same-turn terminal.
+7. `ToolCallScheduled` paired with `ToolCallCompleted` or
+   `ToolCallFailed` under the same `(CallID, Attempt)`.
+8. Merkle root matches over every pre-terminal event.
+
+## Reading and streaming
+
+```go
+// One-shot read of a finished run.
+events, err := log.Read(ctx, runID)
+
+// Stream as the run unfolds (historical + live).
+ch, err := log.Stream(ctx, runID)
+for ev := range ch {
+    // ...
+}
+```
+
+`Stream` delivers historical events first, then live events. The
+channel closes on context cancel, log close, or buffer overflow
+(internal buffer is 256 events).
+
+## Sentinel errors
+
+```go
+var (
+    ErrLogClosed       = errors.New("eventlog: log is closed")
+    ErrLogCorrupt      = errors.New("eventlog: log is corrupt")
+    ErrInvalidAppend   = errors.New("eventlog: invalid append")
+    ErrReadOnly        = errors.New("eventlog: log is read-only")
+    ErrSchemaOutdated  = errors.New("eventlog: schema outdated; run migrate")
+    ErrSchemaTooNew    = errors.New("eventlog: schema too new for this binary")
+)
+```
+
+## Wrapping a backend with metrics
+
+If you call `Append` directly outside `step.emit`, wrap the log to
+capture the same latency histograms:
+
+```go
+import "github.com/jerkeyray/starling/eventlog"
+
+obs := starling.NewMetrics(reg).EventLogObserver()
+log = eventlog.WithMetrics(log, obs)
+```
+
+## Anti-patterns
+
+- **Multiple processes writing to one SQLite file.** Use Postgres.
+- **`SkipSchemaCheck: true` in production.** Hides migrations you
+  forgot to run.
+- **Calling `Migrate` on every process start without coordination.**
+  It's idempotent but wastes a transaction. Run it from your release
+  pipeline; let the binary preflight on startup.
+- **Reusing a `runID` across runs.** Once recorded, ids are retired.
+  The agent mints fresh ULIDs; don't pass synthetic ids.
+
+
+## Where to next
+
+<Cards>
+  <Card title="Bound your costs" href="/docs/build/budgets" description="Token, USD, wall-clock budgets enforced inside the runtime." />
+  <Card title="Operations" href="/docs/operations" description="Backups, retention, metrics, deployment shapes." />
+</Cards>

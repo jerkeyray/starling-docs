@@ -92,9 +92,10 @@ export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
       <Hero />
-      <Providers />
       <FeatureGrid />
+      <RunFlow />
       <HowItWorks />
+      <Providers />
       <OpenSource />
       <Footer />
     </main>
@@ -112,19 +113,19 @@ function Hero() {
       <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-20">
         <div>
           <span
-            className={`mb-5 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-fd-foreground sm:mb-7 sm:text-xs ${hardShadowSm}`}
+            className={`mb-5 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold tracking-wide text-fd-foreground sm:mb-7 sm:text-xs ${hardShadowSm}`}
           >
             <GithubMark className="size-3.5" />
-            <span>Pre-release · Go 1.26+</span>
+            <span>pre-release · go 1.26+</span>
           </span>
           <h1 className="mb-5 text-balance text-4xl font-black leading-[1.05] tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
-            Event-sourced
+            event-sourced
             <br />
             agent runtime
             <br />
             for{' '}
             <span className="relative inline-block text-cyan-500">
-              Go
+              go
               <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-cyan-500" />
             </span>
             .
@@ -141,22 +142,22 @@ function Hero() {
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
               href="/docs/quickstart"
-              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-4 py-2 text-[13px] font-bold uppercase tracking-wider text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-4 py-2 text-sm font-bold text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
             >
-              Quickstart
+              quickstart
               <ArrowRight className="size-4" />
             </Link>
             <Link
-              href="/features"
-              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-emerald-500 px-4 py-2 text-[13px] font-bold uppercase tracking-wider text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
+              href="/why-starling"
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
             >
-              Features
+              why starling
             </Link>
             <Link
               href="/docs"
-              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-[13px] font-bold uppercase tracking-wider transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
             >
-              Docs
+              docs
             </Link>
           </div>
         </div>
@@ -171,8 +172,8 @@ function Providers() {
   return (
     <section className="border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-4 text-center text-[10px] font-bold uppercase tracking-widest text-fd-muted-foreground sm:mb-5 sm:text-[11px]">
-          In-tree adapters
+        <p className="mb-4 text-center text-[11px] font-bold tracking-wide text-fd-muted-foreground sm:mb-5 sm:text-xs">
+          in-tree adapters
         </p>
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {adapters.map((p) => (
@@ -197,19 +198,28 @@ function FeatureGrid() {
   return (
     <section className="border-b-2 border-fd-foreground/90 px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10 max-w-2xl sm:mb-14">
-          <span className="mb-3 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white sm:mb-4">
-            What you get
-          </span>
-          <h2 className="mb-3 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-            A Go runtime built around the log as
-            <br className="hidden sm:inline" />{' '}
-            source of truth.
-          </h2>
-          <p className="text-sm text-fd-muted-foreground sm:text-base">
-            Production-shaped from the start. Nothing about the design
-            optimizes for demos.
-          </p>
+        <div className="mb-10 flex flex-col gap-6 sm:mb-14 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
+          <div className="max-w-2xl">
+            <span className="mb-3 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
+              what you get
+            </span>
+            <h2 className="mb-3 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+              a go runtime built around the log as
+              <br className="hidden sm:inline" />{' '}
+              source of truth.
+            </h2>
+            <p className="text-sm text-fd-muted-foreground sm:text-base">
+              Production-shaped from the start. Nothing about the design
+              optimizes for demos.
+            </p>
+          </div>
+          <Link
+            href="/why-starling"
+            className={`shrink-0 self-start inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadowSm}`}
+          >
+            see all 8 categories
+            <ArrowRight className="size-4" />
+          </Link>
         </div>
         <div className="grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {features.map(({ icon: Icon, title, body }) => (
@@ -232,16 +242,119 @@ function FeatureGrid() {
   );
 }
 
+function RunFlow() {
+  const steps: Array<{
+    n: string;
+    accent: 'cyan' | 'emerald';
+    title: string;
+    body: string;
+    eventHints: string[];
+  }> = [
+    {
+      n: '01',
+      accent: 'cyan',
+      title: 'define',
+      body: 'wire an Agent: Provider, Log, Tools, Config, Budget. no state, just dependencies.',
+      eventHints: ['Agent{}', 'Config{Model, MaxTurns}'],
+    },
+    {
+      n: '02',
+      accent: 'emerald',
+      title: 'run',
+      body: 'call Agent.Run(ctx, goal). the runtime mints a fresh ULID, pins the model + system prompt + tools into RunStarted.',
+      eventHints: ['RunStarted', 'model · prompt hash'],
+    },
+    {
+      n: '03',
+      accent: 'cyan',
+      title: 'loop',
+      body: 'each turn streams from the provider, executes any planned tools, and commits the assistant message. side effects go through step.* so replay can reproduce them.',
+      eventHints: ['TurnStarted', 'AssistantMessageCompleted', 'ToolCallCompleted'],
+    },
+    {
+      n: '04',
+      accent: 'emerald',
+      title: 'finish',
+      body: 'the terminal event commits a merkle root over every prior event. the chain is signable; the run is auditable.',
+      eventHints: ['RunCompleted', 'MerkleRoot'],
+    },
+    {
+      n: '05',
+      accent: 'cyan',
+      title: 'replay',
+      body: 'starling.Replay re-executes the recording byte-for-byte. the first event that does not match surfaces as a typed Divergence.',
+      eventHints: ['starling.Replay', 'replay.Divergence'],
+    },
+  ];
+
+  return (
+    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-10 max-w-2xl sm:mb-14">
+          <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
+            how a run flows
+          </span>
+          <h2 className="mb-3 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+            five phases.
+            <br className="hidden sm:inline" />{' '}
+            every one ends in an event.
+          </h2>
+          <p className="text-sm text-fd-muted-foreground sm:text-base">
+            from the goal you pass in to the merkle-rooted terminal event,
+            every meaningful state change is recorded in order.
+          </p>
+        </div>
+
+        <ol className="grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-5">
+          {steps.map((s) => {
+            const accentBar =
+              s.accent === 'cyan' ? 'bg-cyan-500' : 'bg-emerald-500';
+            const accentText =
+              s.accent === 'cyan' ? 'text-cyan-500' : 'text-emerald-500';
+            return (
+              <li
+                key={s.n}
+                className={`relative flex flex-col gap-3 border-2 border-fd-foreground bg-fd-background p-5 ${hardShadowSm}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`font-mono text-2xl font-black ${accentText}`}>
+                    {s.n}
+                  </span>
+                  <span className={`h-[3px] w-8 ${accentBar}`} aria-hidden />
+                </div>
+                <h3 className="text-base font-bold leading-tight">{s.title}</h3>
+                <p className="text-sm leading-relaxed text-fd-muted-foreground">
+                  {s.body}
+                </p>
+                <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
+                  {s.eventHints.map((h) => (
+                    <span
+                      key={h}
+                      className="inline-block border border-fd-foreground/30 bg-fd-foreground/[0.04] px-1.5 py-0.5 font-mono text-[10px] font-medium text-fd-muted-foreground"
+                    >
+                      {h}
+                    </span>
+                  ))}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
 function HowItWorks() {
   return (
     <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
       <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
       <div className="relative mx-auto max-w-3xl">
-        <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white sm:mb-4">
-          How it works
+        <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
+          how it works
         </span>
         <h2 className="mb-5 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-          Every meaningful runtime action is an{' '}
+          every meaningful runtime action is an{' '}
           <span className="relative inline-block text-emerald-500">
             event
             <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
@@ -270,9 +383,9 @@ function HowItWorks() {
         </p>
         <Link
           href="/docs/events"
-          className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold uppercase tracking-wider transition hover:text-emerald-600 dark:hover:text-emerald-300"
+          className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold transition hover:text-emerald-600 dark:hover:text-emerald-300"
         >
-          Read the event schema
+          read the event schema
           <ArrowRight className="size-4" />
         </Link>
       </div>
@@ -286,11 +399,11 @@ function EventTimeline() {
       <div className="pointer-events-none absolute inset-0 translate-x-2 translate-y-2 bg-emerald-500 sm:translate-x-3 sm:translate-y-3" />
       <div className="relative border-2 border-fd-foreground bg-fd-background">
         <div className="flex items-center justify-between gap-2 border-b-2 border-fd-foreground bg-fd-foreground/5 px-3 py-2 sm:px-4 sm:py-2.5">
-          <span className="truncate font-mono text-[10px] font-bold uppercase tracking-widest text-fd-muted-foreground sm:text-[11px]">
-            run · 01HZ8…XKJ3 · 10 events
+          <span className="truncate font-mono text-[10px] font-bold tracking-wide text-fd-muted-foreground sm:text-[11px]">
+            run · 01hz8…xkj3 · 10 events
           </span>
-          <span className="shrink-0 border-2 border-fd-foreground bg-emerald-500 px-1.5 py-0.5 font-mono text-[9px] font-black uppercase tracking-widest text-white sm:px-2 sm:text-[10px]">
-            ✓ Validated
+          <span className="shrink-0 border-2 border-fd-foreground bg-emerald-500 px-1.5 py-0.5 font-mono text-[9px] font-black tracking-wide text-white sm:px-2 sm:text-[10px]">
+            ✓ validated
           </span>
         </div>
         <ol className="divide-y-2 divide-fd-foreground/10 font-mono text-[11px] sm:text-[12.5px]">
@@ -321,29 +434,29 @@ function OpenSource() {
       <div className="pointer-events-none absolute -bottom-16 left-[-10%] h-56 w-[120%] -rotate-3 bg-emerald-500/10" />
       <div className="relative mx-auto max-w-3xl text-center">
         <span
-          className={`mb-4 inline-block border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-fd-foreground sm:mb-5 ${hardShadowSm}`}
+          className={`mb-4 inline-block border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold tracking-wide text-fd-foreground sm:mb-5 sm:text-xs ${hardShadowSm}`}
         >
-          Open source
+          open source
         </span>
         <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-          Built in the open.{' '}
+          built in the open.{' '}
           <span className="relative inline-block text-emerald-500">
-            Yours to fork
+            yours to fork
             <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
           </span>
           .
         </h2>
         <p className="mx-auto mb-7 max-w-xl text-sm leading-relaxed text-fd-muted-foreground sm:mb-8 sm:text-base">
-          Issues, pull requests, and design discussions are genuinely
-          appreciated. Star the repo to follow along.
+          issues, pull requests, and design discussions are genuinely
+          appreciated. star the repo to follow along.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           <Link
             href={repoURL}
-            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-[13px] font-bold uppercase tracking-wider transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
+            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
           >
             <GithubMark className="size-4" />
-            Star on GitHub
+            star on github
           </Link>
         </div>
       </div>
@@ -356,10 +469,10 @@ function Footer() {
     <footer className="border-t-2 border-fd-foreground/90 bg-fd-background px-5 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-5 text-xs text-fd-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span>© {new Date().getFullYear()} Starling contributors.</span>
+          <span>© {new Date().getFullYear()} starling contributors.</span>
           <span className="hidden text-fd-muted-foreground/50 sm:inline">·</span>
           <span className="basis-full sm:basis-auto">
-            Built by{' '}
+            built by{' '}
             <Link
               href={author.github}
               className="font-bold text-fd-foreground transition hover:text-cyan-600 dark:hover:text-cyan-300"
@@ -381,14 +494,14 @@ function Footer() {
           </span>
         </div>
         <div className="flex items-center gap-4 sm:gap-5">
-          <Link href="/docs" className="font-bold uppercase tracking-wider hover:text-fd-foreground">
-            Docs
+          <Link href="/docs" className="font-bold hover:text-fd-foreground">
+            docs
           </Link>
-          <Link href="/docs/reference" className="font-bold uppercase tracking-wider hover:text-fd-foreground">
-            Reference
+          <Link href="/docs/reference" className="font-bold hover:text-fd-foreground">
+            reference
           </Link>
-          <Link href={repoURL} className="font-bold uppercase tracking-wider hover:text-fd-foreground">
-            GitHub
+          <Link href={repoURL} className="font-bold hover:text-fd-foreground">
+            github
           </Link>
         </div>
       </div>

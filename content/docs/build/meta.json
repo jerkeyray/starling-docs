@@ -1,0 +1,5 @@
+{
+  "title": "Build",
+  "pages": ["agent", "tools", "providers", "persistence", "budgets"],
+  "defaultOpen": true
+}

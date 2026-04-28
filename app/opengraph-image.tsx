@@ -149,7 +149,7 @@ export default function OGImage() {
             <span style={{ color: '#52525b' }}>·</span>
             <span>MCP</span>
           </div>
-          <div style={{ color: '#00ADD8' }}>jerkeyray.com</div>
+          <div style={{ color: '#00ADD8' }}>github.com/jerkeyray/starling</div>
         </div>
       </div>
     ),
