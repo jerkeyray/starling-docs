@@ -1,5 +1,28 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import type { Metadata } from 'next';
+
+const featuresTitle = 'Features';
+const featuresDescription =
+  'Eight categories, forty-odd features. Hash-chained event log, deterministic replay, Resume, cost budgets, four providers, MCP, Postgres + SQLite, Prometheus + OpenTelemetry, embedded inspector.';
+
+export const metadata: Metadata = {
+  title: featuresTitle,
+  description: featuresDescription,
+  alternates: { canonical: '/features' },
+  openGraph: {
+    type: 'website',
+    title: `${featuresTitle} · Starling`,
+    description: featuresDescription,
+    url: '/features',
+    siteName: 'Starling',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${featuresTitle} · Starling`,
+    description: featuresDescription,
+  },
+};
 
 const hardShadow =
   'shadow-[6px_6px_0_0_var(--color-fd-foreground)] dark:shadow-[6px_6px_0_0_rgb(244_244_245)]';

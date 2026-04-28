@@ -42,42 +42,21 @@ are interchangeable.
 
 ### Run / Resume / Replay
 
-```go
-func (a *Agent) Run(ctx context.Context, goal string) (*RunResult, error)
-func (a *Agent) Resume(ctx context.Context, runID, extraMessage string) (*RunResult, error)
-func (a *Agent) ResumeWith(ctx context.Context, runID, extraMessage string, opts ...ResumeOption) (*RunResult, error)
-func Replay(ctx context.Context, log eventlog.EventLog, runID string, a *Agent) error
-```
+- **`Run(ctx, goal) (*RunResult, error)`** — live entry. Mints a fresh
+  run id (namespaced when `Namespace != ""`), emits `RunStarted`, runs
+  the loop, returns the terminal `*RunResult`.
+- **`Resume(ctx, runID, extraMessage) (*RunResult, error)`** — re-enters
+  a run from its last seq. Pending tool calls reissue under fresh
+  `CallID`s; the orphan stays for audit. `ResumeWith(...opts)` adds
+  `WithReissueTools(false)` for manual recovery.
+- **`Replay(ctx, log, runID, agent) error`** — re-executes against the
+  same wiring. Returns `nil` on a clean replay or wraps a
+  `*replay.Divergence` with `ErrNonDeterminism` on the first mismatch.
 
-- `Run` is the live entry. Mints a fresh run id (namespaced when
-  `Namespace != ""`), emits `RunStarted`, runs the loop, returns
-  `*RunResult` carrying the terminal kind, totals, and Merkle root.
-- `Resume` re-enters a run from its last seq. Pending tool calls
-  are reissued under fresh `CallID`s; the orphaned `ToolCallScheduled`
-  stays for audit. A `RunResumed` seam event marks the boundary.
-- `Replay` re-executes against the same agent wiring. Returns
-  `nil` on a clean replay or a `*replay.Divergence` wrapped with
-  `ErrNonDeterminism` on the first mismatch.
-
-### RunResult
-
-```go
-type RunResult struct {
-    RunID         string
-    FinalText     string
-    TurnCount     int
-    ToolCallCount int
-    TotalCostUSD  float64
-    InputTokens   int64
-    OutputTokens  int64
-    Duration      time.Duration
-    TerminalKind  event.Kind  // RunCompleted | RunFailed | RunCancelled
-    MerkleRoot    []byte
-}
-```
-
-The same values are recoverable by replaying the log; `RunResult` is a
-convenience.
+`RunResult` carries `RunID`, `FinalText`, totals (`TurnCount`,
+`ToolCallCount`, `TotalCostUSD`, `InputTokens`, `OutputTokens`,
+`Duration`), `TerminalKind`, and `MerkleRoot`. All recoverable from the
+log; the struct is a convenience.
 
 ### Sentinel errors
 
@@ -92,26 +71,16 @@ convenience.
 
 ## budget
 
-```go
-type Budget struct {
-    MaxInputTokens  int64
-    MaxOutputTokens int64
-    MaxUSD          float64
-    MaxWallClock    time.Duration
-}
-```
+`Budget` has four axes; zero on any field disables it. A trip emits
+`BudgetExceeded{Limit, Cap, Actual, Where}` and unwinds with
+`RunFailed{ErrorType:"budget"}`.
 
-Zero on any field disables that axis. Enforcement points:
-
-| Axis              | When                                              |
-|-------------------|---------------------------------------------------|
-| `MaxInputTokens`  | Pre-call, before every `step.LLMCall`.            |
-| `MaxOutputTokens` | Mid-stream on every `ChunkUsage`.                 |
-| `MaxUSD`          | Mid-stream using `budget/prices.go` per-model rates. |
-| `MaxWallClock`    | `context.WithDeadline` wrapping the run.          |
-
-A trip emits `BudgetExceeded{Limit, Cap, Actual, Where}` and unwinds
-with `RunFailed{ErrorType:"budget"}`.
+| Axis (field)              | Type            | When                                                |
+|---------------------------|-----------------|-----------------------------------------------------|
+| `MaxInputTokens`          | `int64`         | Pre-call, before every `step.LLMCall`.              |
+| `MaxOutputTokens`         | `int64`         | Mid-stream on every `ChunkUsage`.                   |
+| `MaxUSD`                  | `float64`       | Mid-stream using `budget/prices.go` per-model rates. |
+| `MaxWallClock`            | `time.Duration` | `context.WithDeadline` wrapping the run.            |
 
 ## event
 
@@ -131,74 +100,51 @@ type Event struct {
 There are 15 event kinds; the full schema with payload definitions and
 invariants is on the [Events](/docs/events) page.
 
-```go
-func Marshal(ev Event) ([]byte, error)
-func Unmarshal(data []byte) (Event, error)
-func Hash(data []byte) []byte
-func ToJSON(ev Event) ([]byte, error)
-```
-
+Encoding helpers: `Marshal`, `Unmarshal`, `Hash`, `ToJSON`.
 `event.HashSize` is 32. Each typed payload has an `EncodePayload[T]`
-helper; each kind has a matching accessor (`AsRunStarted`, `AsToolCallCompleted`, …).
+helper; each kind has a matching accessor (`AsRunStarted`,
+`AsToolCallCompleted`, …).
 
 ## eventlog
 
-The persistence interface.
-
 ```go
 type EventLog interface {
-    Append(ctx context.Context, runID string, ev event.Event) error
-    Read(ctx context.Context, runID string) ([]event.Event, error)
-    Stream(ctx context.Context, runID string) (<-chan event.Event, error)
+    Append(ctx, runID, ev) error
+    Read(ctx, runID) ([]Event, error)
+    Stream(ctx, runID) (<-chan Event, error)
     Close() error
-}
-
-type RunLister interface {
-    ListRuns(ctx context.Context) ([]RunSummary, error)
 }
 ```
 
-All three built-in backends satisfy `RunLister`.
+`RunLister` adds `ListRuns(ctx) ([]RunSummary, error)`. All three
+built-in backends implement both.
 
 ### Backends
 
-| Constructor                                        | Use when                                                            |
-|----------------------------------------------------|---------------------------------------------------------------------|
-| `NewInMemory()`                                    | Tests, demos, ephemeral CLI tools.                                  |
-| `NewSQLite(path, opts...)`                         | Single-host services, edge nodes.                                   |
-| `NewPostgres(db *sql.DB, opts...)`                 | Multi-host services. Per-run advisory locks serialize appenders.    |
+| Constructor                  | Use when                                                            |
+|------------------------------|---------------------------------------------------------------------|
+| `NewInMemory()`              | Tests, demos, ephemeral CLI tools.                                  |
+| `NewSQLite(path, opts...)`   | Single-host services, edge nodes.                                   |
+| `NewPostgres(db, opts...)`   | Multi-host services. Per-run advisory locks serialize appenders.    |
 
-Common options:
-
-- `WithReadOnly()` (SQLite) / `WithReadOnlyPG()` (Postgres): inspector mode.
-- `WithAutoMigratePG()`: run schema migrations on connect.
+Options: `WithReadOnly()` / `WithReadOnlyPG()` for inspector mode,
+`WithAutoMigratePG()` to run migrations on connect.
 
 ### Validation, migrations, preflight
 
-```go
-func Validate(events []event.Event) error
-func SchemaVersion(ctx context.Context, log EventLog) (int, error)
-func Migrate(ctx context.Context, log EventLog, opts ...MigrateOption) (MigrationReport, error)
-func Preflight(ctx context.Context, log EventLog) error
-func WithMetrics(log EventLog, obs AppendObserver) EventLog
-```
+- **`Validate(events)`** — seq monotonicity, hash chain, terminal
+  placement, Merkle root, and the semantic pairing rules from the
+  [Event schema](/docs/events).
+- **`SchemaVersion(ctx, log)` / `Migrate(ctx, log, opts...)`** —
+  forward-only migration API. `Migrate` returns a `MigrationReport`.
+- **`Preflight(ctx, log)`** — fails fast with `ErrSchemaOutdated` or
+  `ErrSchemaTooNew`. `Agent.Run`, `Agent.Resume`, and the inspector
+  all call it unless `Config.SkipSchemaCheck = true`.
+- **`WithMetrics(log, obs)`** — wraps any `EventLog` so direct
+  `Append` callers see the same latency histograms `step.emit` records.
 
-`Validate` checks seq monotonicity, hash chain, terminal placement,
-Merkle root, and the semantic pairing rules from the
-[Event schema](/docs/events).
-
-`Preflight` returns `ErrSchemaOutdated` or `ErrSchemaTooNew` on a
-mismatch between the database and the binary. `Agent.Run`,
-`Agent.Resume`, and the inspector all call it on startup unless
-`Config.SkipSchemaCheck = true`.
-
-`WithMetrics` wraps any `EventLog` so direct `Append` callers (outside
-`step.emit`) see the same latency histograms the agent loop records.
-
-### Sentinel errors
-
-`ErrLogClosed`, `ErrLogCorrupt`, `ErrInvalidAppend`, `ErrReadOnly`,
-`ErrSchemaOutdated`, `ErrSchemaTooNew`.
+Sentinel errors: `ErrLogClosed`, `ErrLogCorrupt`, `ErrInvalidAppend`,
+`ErrReadOnly`, `ErrSchemaOutdated`, `ErrSchemaTooNew`.
 
 ## step
 
@@ -218,59 +164,38 @@ the recorded value back without invoking `fn`. `T` must be CBOR-serializable.
 
 ### LLM calls
 
-```go
-func LLMCall(ctx context.Context, req *provider.Request) (*provider.Response, error)
-```
-
-Drives a streaming completion through the configured provider. Emits
-`TurnStarted`, optional `ReasoningEmitted`, and `AssistantMessageCompleted`.
-Enforces input/output/USD budgets inline. Validates the chunk state
-machine (rejects EOF before `ChunkEnd`, duplicate `ChunkToolUseStart`,
-chunks after `ChunkEnd`).
+`LLMCall(ctx, req)` drives a streaming completion through the configured
+provider. Emits `TurnStarted`, optional `ReasoningEmitted`, and
+`AssistantMessageCompleted`. Enforces input/output/USD budgets inline.
+Validates the chunk state machine (no EOF before `ChunkEnd`, no
+duplicate `ChunkToolUseStart`, no chunks after `ChunkEnd`).
 
 ### Tool dispatch
 
 ```go
 type ToolCall struct {
-    CallID      string
-    TurnID      string
-    Name        string
-    Args        json.RawMessage
-    Idempotent  bool
-    MaxAttempts int
-    Backoff     func(attempt int) time.Duration
+    CallID, TurnID, Name string
+    Args                 json.RawMessage
+    Idempotent           bool
+    MaxAttempts          int
+    Backoff              func(attempt int) time.Duration
 }
-
-func CallTool(ctx context.Context, c ToolCall) (json.RawMessage, error)
-func CallTools(ctx context.Context, calls []ToolCall) ([]ToolResult, error)
-func NewCallID() string
 ```
 
-`CallTool` is sequential, `CallTools` fans out with a semaphore (cap is
-`Config.MaxParallelTools`, default 8). Retries wrap on
-`tool.ErrTransient` when `Idempotent` and `MaxAttempts > 1`.
+- **`CallTool(ctx, c)`** — sequential dispatch.
+- **`CallTools(ctx, calls)`** — fan-out with a semaphore (cap is
+  `Config.MaxParallelTools`, default 8).
+- Retries kick in on `tool.ErrTransient` when `Idempotent` and
+  `MaxAttempts > 1`. `NewCallID()` mints fresh IDs.
 
 ### Replay errors
 
-```go
-type MismatchError struct {
-    Seq          uint64
-    Kind         event.Kind
-    ExpectedKind event.Kind
-    Class        MismatchClass  // "exhausted" | "kind" | "payload" | "turn_id"
-    Reason       string
-}
-
-var (
-    ErrReplayMismatch         = errors.New("step: replay mismatch")
-    ErrInvalidStream          = errors.New("step: invalid provider stream")
-    ErrMissingRawResponseHash = errors.New("step: provider returned empty RawResponseHash")
-)
-```
-
-`MismatchError.Is(ErrReplayMismatch)` is true; route on it with
-`errors.Is`, extract structured fields with `errors.As`. The replay
-package lifts these into `replay.Divergence` (next section).
+`MismatchError` carries `Seq`, `Kind`, `ExpectedKind`, `Class`
+(`"exhausted" | "kind" | "payload" | "turn_id"`), and `Reason`. It
+satisfies `errors.Is(ErrReplayMismatch)`. Use `errors.As` for the
+structured fields. Other sentinels: `ErrInvalidStream`,
+`ErrMissingRawResponseHash`. The replay package lifts these into
+`replay.Divergence` (next section).
 
 ## tool
 
@@ -278,34 +203,26 @@ package lifts these into `replay.Divergence` (next section).
 type Tool interface {
     Name() string
     Description() string
-    Schema() json.RawMessage  // JSON Schema for input
-    Execute(ctx context.Context, in json.RawMessage) (json.RawMessage, error)
+    Schema() json.RawMessage   // JSON Schema for input
+    Execute(ctx, in) (json.RawMessage, error)
 }
 ```
 
-The convenience wrapper:
-
-```go
-func Typed[In, Out any](name, description string, fn func(context.Context, In) (Out, error)) Tool
-```
-
-`Typed` derives a JSON Schema from `In` via reflection. Errors should
-wrap `tool.ErrTransient` to opt the call into retry under
-`step.ToolCall{Idempotent: true, MaxAttempts: N}`.
+`tool.Typed[In, Out](name, description, fn)` derives the JSON Schema
+from `In` via reflection. Errors wrapping `tool.ErrTransient` opt the
+call into retry under `step.ToolCall{Idempotent: true, MaxAttempts: N}`.
 
 ### MCP adapter (`tool/mcp`)
 
-Three constructors:
+Three constructors mount remote MCP tools as ordinary Starling tools:
 
-```go
-func New(ctx context.Context, transport mcp.Transport, opts ...Option) (*Client, error)
-func NewCommand(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Client, error)
-func NewHTTP(ctx context.Context, endpoint string, httpClient *http.Client, opts ...Option) (*Client, error)
-```
+- **`New(ctx, transport, opts...)`** — any `mcp.Transport`.
+- **`NewCommand(ctx, exec.Cmd, opts...)`** — stdio subprocess.
+- **`NewHTTP(ctx, endpoint, client, opts...)`** — streamable HTTP.
 
 Each connects, lists remote tools, and exposes them via
-`client.Tools(ctx) []tool.Tool`. Calls route through `step.SideEffect`
-so replay never re-contacts the server. Full options table on the
+`client.Tools(ctx)`. Calls route through `step.SideEffect` so replay
+never re-contacts the server. Full options table on the
 [MCP](/docs/mcp) page.
 
 ### Built-in tools
@@ -320,28 +237,18 @@ The streaming-completion abstraction.
 ```go
 type Provider interface {
     Info() Info
-    Stream(ctx context.Context, req *Request) (EventStream, error)
-}
-
-type Capabler interface {
-    Capabilities() Capabilities
-}
-
-type Request struct {
-    Model           string
-    SystemPrompt    string
-    Messages        []Message
-    Tools           []ToolDefinition
-    ToolChoice      string         // "" | "auto" | "any" | "none" | tool-name
-    StopSequences   []string
-    TopK            *int
-    MaxOutputTokens int
-    Params          cborenc.RawMessage  // vendor-specific escape hatch
+    Stream(ctx, req) (EventStream, error)
 }
 ```
 
-`EventStream` yields `StreamChunk` values. Chunk kinds:
-`ChunkText`, `ChunkReasoning`, `ChunkRedactedThinking`,
+Optional `Capabler` exposes `Capabilities()` so the conformance suite
+can skip what the adapter doesn't support. A `Request` carries `Model`,
+`SystemPrompt`, `Messages`, `Tools`, `ToolChoice` (`""` | `"auto"` |
+`"any"` | `"none"` | tool name), `StopSequences`, `TopK`,
+`MaxOutputTokens`, and a vendor-specific `Params` blob.
+
+`EventStream` yields `StreamChunk` values: `ChunkText`,
+`ChunkReasoning`, `ChunkRedactedThinking`,
 `ChunkToolUseStart/Delta/End`, `ChunkUsage`, `ChunkEnd`. The state
 machine is enforced by `step.LLMCall`.
 
@@ -361,51 +268,32 @@ capability-gated assertions when the adapter reports `false`.
 
 ## replay
 
-```go
-func Verify(ctx context.Context, log eventlog.EventLog, runID string, a Agent) error
-func Stream(ctx context.Context, factory Factory, log eventlog.EventLog, runID string) (<-chan ReplayStep, error)
+- **`Verify(ctx, log, runID, agent)`** — headless check. Returns `nil`
+  on a clean replay or wraps `*Divergence` with `ErrNonDeterminism` on
+  the first mismatch. `starling.Replay` is a thin wrapper that takes
+  `*Agent` directly.
+- **`Stream(ctx, factory, log, runID)`** — inspector path. Yields a
+  `ReplayStep` per emitted event so the UI can render recorded vs
+  produced side-by-side. The final step has `Diverged: true` when the
+  replay didn't reach the recorded terminal.
 
-type Factory func(ctx context.Context) (Agent, error)
-
-type Divergence struct {
-    RunID        string
-    Seq          uint64
-    Kind         event.Kind
-    ExpectedKind event.Kind
-    Class        step.MismatchClass
-    Reason       string
-}
-
-var ErrNonDeterminism = errors.New("replay: non-determinism detected")
-```
-
-`Verify` is the headless check: returns `nil` on clean replay or
-wraps `*Divergence` with `ErrNonDeterminism` on the first mismatch.
-The root `starling.Replay` is a thin wrapper that takes `*Agent`
-directly.
-
-`Stream` is the inspector path: yields a `ReplayStep` per emitted
-event so the UI can render recorded vs produced side-by-side. The final
-step has `Diverged: true` when the replay didn't reach the recorded
-terminal.
+`Divergence` carries `RunID`, `Seq`, `Kind`, `ExpectedKind`, `Class`,
+`Reason`. `Factory` is `func(ctx) (Agent, error)`.
 
 ## inspect
 
-Embedded HTTP handler that serves the runs list, per-run timeline,
-event detail, live tail (SSE), and replay. The standalone binary at
+Embedded HTTP handler. Serves the runs list, per-run timeline, event
+detail, live tail (SSE), and replay. The standalone binary at
 `cmd/starling-inspect` opens any SQLite log read-only.
 
-```go
-func New(log eventlog.EventLog, opts ...Option) *Server
+`inspect.New(log, opts...)` returns a `*Server`. Options:
 
-func WithAuth(fn Authenticator) Option
-func BearerAuth(token string) Authenticator
-func WithReplayer(factory replay.Factory) Option
-```
+- **`WithAuth(authenticator)`** — protect every endpoint.
+- **`BearerAuth(token)`** — convenience `Authenticator`.
+- **`WithReplayer(factory)`** — enable replay re-execution.
 
-Read-only by construction, CSRF-protected on the two replay POST
-endpoints, bearer-token via `Authenticator`. Front it with TLS in
-production: see the [Operations](/docs/operations) page.
+Read-only by construction, CSRF-protected on the replay POST endpoints.
+Front it with TLS in production: see [Operations](/docs/operations).
 
 ## CLI (`cmd/starling`)
 

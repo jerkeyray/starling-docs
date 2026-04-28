@@ -1,20 +1,11 @@
-import { getPageImage, source } from '@/lib/source';
-import { notFound } from 'next/navigation';
 import { ImageResponse } from 'next/og';
 
-export const revalidate = false;
+export const runtime = 'edge';
+export const alt = 'Starling features';
+export const size = { width: 1200, height: 630 };
+export const contentType = 'image/png';
 
-export async function GET(
-  _req: Request,
-  { params }: RouteContext<'/og/docs/[...slug]'>,
-) {
-  const { slug } = await params;
-  const page = source.getPage(slug.slice(0, -1));
-  if (!page) notFound();
-
-  const title = page.data.title;
-  const description = page.data.description ?? '';
-
+export default function FeaturesOG() {
   return new ImageResponse(
     (
       <div
@@ -37,8 +28,8 @@ export async function GET(
             right: '-120px',
             width: '900px',
             height: '320px',
-            background: '#00ADD8',
-            opacity: 0.18,
+            background: '#10b981',
+            opacity: 0.2,
             transform: 'rotate(-8deg)',
           }}
         />
@@ -58,7 +49,7 @@ export async function GET(
             display: 'flex',
             alignItems: 'center',
             gap: '16px',
-            marginBottom: '48px',
+            marginBottom: '40px',
           }}
         >
           <div
@@ -90,46 +81,55 @@ export async function GET(
             style={{
               marginLeft: '12px',
               padding: '6px 12px',
-              border: '2px solid #fff',
+              background: '#10b981',
+              color: '#000',
               fontSize: '16px',
-              fontWeight: 700,
+              fontWeight: 800,
               letterSpacing: '0.16em',
               textTransform: 'uppercase',
             }}
           >
-            Docs
+            Features
           </div>
         </div>
 
         <div
           style={{
             display: 'flex',
-            fontSize: title.length > 30 ? '72px' : '92px',
+            flexDirection: 'column',
+            fontSize: '88px',
             fontWeight: 900,
-            lineHeight: 1.05,
+            lineHeight: 1.02,
             letterSpacing: '-0.02em',
-            marginBottom: '28px',
-            maxWidth: '1000px',
+            marginBottom: '32px',
           }}
         >
-          {title}
+          <div>Everything in the</div>
+          <div>
+            <span
+              style={{
+                color: '#00ADD8',
+                borderBottom: '8px solid #00ADD8',
+                paddingBottom: '4px',
+              }}
+            >
+              runtime
+            </span>
+            .
+          </div>
         </div>
 
-        {description ? (
-          <div
-            style={{
-              display: 'flex',
-              fontSize: '26px',
-              color: '#a1a1aa',
-              lineHeight: 1.4,
-              maxWidth: '950px',
-            }}
-          >
-            {description.length > 200
-              ? description.slice(0, 197) + '…'
-              : description}
-          </div>
-        ) : null}
+        <div
+          style={{
+            fontSize: '26px',
+            color: '#a1a1aa',
+            lineHeight: 1.4,
+            maxWidth: '950px',
+          }}
+        >
+          Eight categories, forty-odd features. All wired around the event
+          log as source of truth.
+        </div>
 
         <div
           style={{
@@ -147,21 +147,23 @@ export async function GET(
             textTransform: 'uppercase',
           }}
         >
-          <span>Event-sourced agent runtime for Go</span>
-          <span style={{ color: '#00ADD8' }}>jerkeyray.com</span>
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <span>Audit</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>Replay</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>Recovery</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>Budgets</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>Providers</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>MCP</span>
+          </div>
+          <div style={{ color: '#10b981' }}>jerkeyray.com</div>
         </div>
       </div>
     ),
-    {
-      width: 1200,
-      height: 630,
-    },
+    size,
   );
-}
-
-export function generateStaticParams() {
-  return source.getPages().map((page) => ({
-    lang: page.locale,
-    slug: getPageImage(page).segments,
-  }));
 }

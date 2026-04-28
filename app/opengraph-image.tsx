@@ -1,20 +1,11 @@
-import { getPageImage, source } from '@/lib/source';
-import { notFound } from 'next/navigation';
 import { ImageResponse } from 'next/og';
 
-export const revalidate = false;
+export const runtime = 'edge';
+export const alt = 'Starling · event-sourced agent runtime for Go';
+export const size = { width: 1200, height: 630 };
+export const contentType = 'image/png';
 
-export async function GET(
-  _req: Request,
-  { params }: RouteContext<'/og/docs/[...slug]'>,
-) {
-  const { slug } = await params;
-  const page = source.getPage(slug.slice(0, -1));
-  if (!page) notFound();
-
-  const title = page.data.title;
-  const description = page.data.description ?? '';
-
+export default function OGImage() {
   return new ImageResponse(
     (
       <div
@@ -30,6 +21,7 @@ export async function GET(
           padding: '72px',
         }}
       >
+        {/* Diagonal cyan accent stripe */}
         <div
           style={{
             position: 'absolute',
@@ -42,6 +34,7 @@ export async function GET(
             transform: 'rotate(-8deg)',
           }}
         />
+        {/* Top rule */}
         <div
           style={{
             position: 'absolute',
@@ -53,12 +46,13 @@ export async function GET(
           }}
         />
 
+        {/* Wordmark + pill */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '16px',
-            marginBottom: '48px',
+            gap: '20px',
+            marginBottom: '40px',
           }}
         >
           <div
@@ -66,12 +60,12 @@ export async function GET(
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '52px',
-              height: '52px',
+              width: '64px',
+              height: '64px',
               background: '#00ADD8',
               color: '#000',
               fontWeight: 900,
-              fontSize: '32px',
+              fontSize: '40px',
               lineHeight: 1,
             }}
           >
@@ -79,58 +73,57 @@ export async function GET(
           </div>
           <div
             style={{
-              fontSize: '24px',
+              fontSize: '28px',
               fontWeight: 800,
               letterSpacing: '0.04em',
             }}
           >
             STARLING
           </div>
-          <div
-            style={{
-              marginLeft: '12px',
-              padding: '6px 12px',
-              border: '2px solid #fff',
-              fontSize: '16px',
-              fontWeight: 700,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Docs
-          </div>
         </div>
 
+        {/* Headline */}
         <div
           style={{
             display: 'flex',
-            fontSize: title.length > 30 ? '72px' : '92px',
+            flexDirection: 'column',
+            fontSize: '92px',
             fontWeight: 900,
-            lineHeight: 1.05,
+            lineHeight: 1.02,
             letterSpacing: '-0.02em',
-            marginBottom: '28px',
-            maxWidth: '1000px',
+            marginBottom: '32px',
           }}
         >
-          {title}
+          <div>Event-sourced</div>
+          <div>
+            agent runtime for{' '}
+            <span
+              style={{
+                color: '#00ADD8',
+                borderBottom: '8px solid #00ADD8',
+                paddingBottom: '4px',
+              }}
+            >
+              Go
+            </span>
+            .
+          </div>
         </div>
 
-        {description ? (
-          <div
-            style={{
-              display: 'flex',
-              fontSize: '26px',
-              color: '#a1a1aa',
-              lineHeight: 1.4,
-              maxWidth: '950px',
-            }}
-          >
-            {description.length > 200
-              ? description.slice(0, 197) + '…'
-              : description}
-          </div>
-        ) : null}
+        {/* Lede */}
+        <div
+          style={{
+            fontSize: '28px',
+            color: '#a1a1aa',
+            lineHeight: 1.4,
+            maxWidth: '900px',
+          }}
+        >
+          Replay any run byte-for-byte. Audit every step. Enforce cost
+          inside the runtime.
+        </div>
 
+        {/* Footer row */}
         <div
           style={{
             position: 'absolute',
@@ -140,28 +133,26 @@ export async function GET(
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            fontSize: '18px',
+            fontSize: '20px',
             color: '#71717a',
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
           }}
         >
-          <span>Event-sourced agent runtime for Go</span>
-          <span style={{ color: '#00ADD8' }}>jerkeyray.com</span>
+          <div style={{ display: 'flex', gap: '24px' }}>
+            <span>Replay</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>Audit</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>Resume</span>
+            <span style={{ color: '#52525b' }}>·</span>
+            <span>MCP</span>
+          </div>
+          <div style={{ color: '#00ADD8' }}>jerkeyray.com</div>
         </div>
       </div>
     ),
-    {
-      width: 1200,
-      height: 630,
-    },
+    size,
   );
-}
-
-export function generateStaticParams() {
-  return source.getPages().map((page) => ({
-    lang: page.locale,
-    slug: getPageImage(page).segments,
-  }));
 }
