@@ -20,15 +20,11 @@ function GithubMark({ className = 'size-4' }: { className?: string }) {
   );
 }
 
-const features: Array<{
-  icon: typeof Rewind;
-  title: string;
-  body: string;
-}> = [
+const features: Array<{ icon: typeof Rewind; title: string; body: string }> = [
   {
     icon: Rewind,
     title: 'Replayable runs',
-    body: 'Every run is recorded as a hash-chained event log. Replay byte-for-byte against the same agent wiring; divergence is a typed error.',
+    body: 'Every run is a hash-chained event log. Replay byte-for-byte against the same agent wiring; divergence is a typed error.',
   },
   {
     icon: ShieldCheck,
@@ -38,22 +34,22 @@ const features: Array<{
   {
     icon: CircuitBoard,
     title: 'Provider-neutral',
-    body: 'OpenAI-compatible, Anthropic, Gemini, OpenRouter. Adapters share a conformance suite so streaming and tool-call shapes stay consistent.',
+    body: 'OpenAI-compatible, Anthropic, Gemini, OpenRouter. Adapters share a conformance suite.',
   },
   {
     icon: Plug,
     title: 'MCP-ready',
-    body: 'Mount remote MCP server tools as ordinary Starling tools. Calls route through step.SideEffect so replay never re-contacts the server.',
+    body: 'Mount remote MCP server tools as ordinary Starling tools. Calls route through step.SideEffect.',
   },
   {
     icon: Wallet,
     title: 'Cost control',
-    body: 'Token, USD, and wall-clock budgets enforced inside the runtime, not observed after the fact. BudgetExceeded events are auditable.',
+    body: 'Token, USD, and wall-clock budgets enforced inside the runtime, not observed after the fact.',
   },
   {
     icon: Boxes,
     title: 'Operator-shaped',
-    body: 'Migrations, durable Postgres + SQLite backends, structured slog, Prometheus metrics, an inspector UI, OTel-friendly span tree.',
+    body: 'Migrations, durable Postgres + SQLite, structured slog, Prometheus metrics, an inspector UI.',
   },
 ];
 
@@ -75,27 +71,11 @@ const eventTimeline: Array<{
   { seq: 10, kind: 'RunCompleted', tag: 'terminal', note: 'merkle root committed' },
 ];
 
-const tagStyle: Record<typeof eventTimeline[number]['tag'], { kind: string; pill: string; label: string }> = {
-  lifecycle: {
-    kind: 'text-cyan-600 dark:text-cyan-300',
-    pill: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-500/30',
-    label: 'lifecycle',
-  },
-  turn: {
-    kind: 'text-zinc-700 dark:text-zinc-200',
-    pill: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-300 ring-1 ring-zinc-500/20',
-    label: 'turn',
-  },
-  tool: {
-    kind: 'text-emerald-600 dark:text-emerald-300',
-    pill: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30',
-    label: 'tool',
-  },
-  terminal: {
-    kind: 'text-rose-600 dark:text-rose-300',
-    pill: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/30',
-    label: 'terminal',
-  },
+const tagStyle: Record<typeof eventTimeline[number]['tag'], string> = {
+  lifecycle: 'text-cyan-600 dark:text-cyan-300',
+  turn: 'text-zinc-600 dark:text-zinc-300',
+  tool: 'text-emerald-600 dark:text-emerald-300',
+  terminal: 'text-rose-600 dark:text-rose-300',
 };
 
 const heroSnippet = `import (
@@ -116,6 +96,16 @@ res, err := a.Run(ctx, "Summarize today's incidents.")
 // every prompt, tool call, and chunk lands in the log →
 // replay it later, deterministically, against the same wiring`;
 
+// Manga-style hard offset shadow. Two-tone, no blur.
+const hardShadow =
+  'shadow-[6px_6px_0_0_var(--color-fd-foreground)] dark:shadow-[6px_6px_0_0_rgb(244_244_245)]';
+const hardShadowSm =
+  'shadow-[4px_4px_0_0_var(--color-fd-foreground)] dark:shadow-[4px_4px_0_0_rgb(244_244_245)]';
+
+// Subtle dot grid evoking manga panel paper.
+const dotGrid =
+  'bg-[radial-gradient(currentColor_1px,transparent_1px)] [background-size:18px_18px] text-fd-foreground/[0.06]';
+
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
@@ -129,106 +119,57 @@ export default function HomePage() {
   );
 }
 
-function Benchmarks() {
-  const rows = [
-    { value: '~1.7 µs', label: 'in-memory append' },
-    { value: '~31 µs', label: 'SQLite append (WAL, single writer)' },
-    { value: '~7.5 ms', label: 'full-run validate (10k events)' },
-  ];
-  return (
-    <section className="border-b border-fd-border bg-fd-background px-6 py-10">
-      <div className="mx-auto grid max-w-5xl gap-y-6 sm:grid-cols-3 sm:divide-x sm:divide-fd-border">
-        {rows.map((r) => (
-          <div key={r.label} className="px-6 text-center">
-            <div className="font-mono text-2xl font-semibold tracking-tight text-cyan-600 dark:text-cyan-300">
-              {r.value}
-            </div>
-            <div className="mt-1 text-xs text-fd-muted-foreground">
-              {r.label}
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="mx-auto mt-6 max-w-3xl text-center text-[11px] text-fd-muted-foreground/70">
-        Apple Silicon · Go 1.26 · single-shot, ±20% noise. Re-run with{' '}
-        <code className="font-mono">go test -bench=. -count=5 ./bench/</code>.
-      </p>
-    </section>
-  );
-}
-
-function Providers() {
-  const adapters = ['OpenAI', 'Anthropic', 'Gemini', 'OpenRouter', 'MCP'];
-  return (
-    <section className="border-b border-fd-border bg-fd-muted/15 px-6 py-12">
-      <div className="mx-auto max-w-5xl">
-        <p className="mb-5 text-center text-xs font-medium uppercase tracking-wider text-fd-muted-foreground">
-          In-tree adapters
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {adapters.map((p) => (
-            <span
-              key={p}
-              className="inline-flex items-center rounded-full border border-fd-border bg-fd-background px-3 py-1 font-mono text-[12px] text-fd-muted-foreground transition hover:border-cyan-500/40 hover:text-fd-foreground"
-            >
-              {p}
-            </span>
-          ))}
-        </div>
-        <p className="mx-auto mt-5 max-w-2xl text-center text-[11px] text-fd-muted-foreground/70">
-          OpenAI-compatible endpoints (Groq, Together, Ollama, vLLM, Azure, …)
-          plug in via{' '}
-          <code className="font-mono">openai.WithBaseURL</code>.
-        </p>
-      </div>
-    </section>
-  );
-}
-
 function Hero() {
   return (
-    <section className="relative overflow-hidden border-b border-fd-border">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(6,182,212,0.18),transparent_45%),radial-gradient(circle_at_85%_30%,rgba(20,184,166,0.14),transparent_45%),radial-gradient(circle_at_50%_100%,rgba(16,185,129,0.10),transparent_55%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
-      <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-10 lg:py-28">
+    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90">
+      <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
+      {/* diagonal accent stripe (manga panel break) */}
+      <div className="pointer-events-none absolute -top-24 right-[-10%] h-72 w-[120%] -rotate-6 bg-cyan-500/10 dark:bg-cyan-500/[0.08]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-fd-foreground/90" />
+
+      <div className="relative mx-auto grid max-w-6xl gap-12 px-6 py-20 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-28">
         <div>
           <Link
             href={repoURL}
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-700 transition hover:bg-cyan-500/15 dark:text-cyan-300"
+            className={`mb-7 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-xs font-bold uppercase tracking-wider text-fd-foreground transition hover:bg-cyan-500 hover:text-white ${hardShadowSm}`}
           >
             <GithubMark className="size-3.5" />
             <span>Pre-release · Go 1.26+</span>
-            <ArrowRight className="size-3.5" />
           </Link>
-          <h1 className="mb-6 text-balance text-4xl font-semibold tracking-tight md:text-5xl lg:text-6xl">
-            Event-sourced agent runtime for{' '}
-            <span className="bg-gradient-to-br from-cyan-500 via-teal-500 to-emerald-500 bg-clip-text text-transparent">
+          <h1 className="mb-6 text-balance text-5xl font-black leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
+            Event-sourced
+            <br />
+            agent runtime
+            <br />
+            for{' '}
+            <span className="relative inline-block text-cyan-500">
               Go
+              <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-cyan-500" />
             </span>
             .
           </h1>
-          <p className="mb-8 max-w-xl text-balance text-lg text-fd-muted-foreground">
+          <p className="mb-9 max-w-xl text-balance text-lg leading-relaxed text-fd-muted-foreground">
             Every run is replayable, auditable, and cost-enforceable. When an
-            agent fails in production, replay the log and see exactly where
+            agent fails in production, replay the log and see the exact step
             today&apos;s behavior{' '}
-            <span className="font-medium text-rose-600 dark:text-rose-300">
+            <span className="bg-rose-500/15 px-1.5 py-0.5 font-bold text-rose-600 dark:text-rose-300">
               diverges
             </span>
             .
           </p>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             <Link
               href="/docs/quickstart"
-              className="inline-flex items-center gap-2 rounded-md bg-gradient-to-br from-cyan-500 to-teal-600 px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-cyan-500/25 transition hover:shadow-lg hover:shadow-cyan-500/35"
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadow}`}
             >
               Quickstart
               <ArrowRight className="size-4" />
             </Link>
             <Link
               href="/docs"
-              className="inline-flex items-center gap-2 rounded-md border border-fd-border bg-fd-card px-5 py-2.5 text-sm font-medium transition hover:border-fd-accent hover:bg-fd-accent"
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadow}`}
             >
-              Read the docs
+              Docs
             </Link>
           </div>
         </div>
@@ -241,13 +182,16 @@ function Hero() {
 function TerminalCard({ code }: { code: string }) {
   return (
     <div className="relative">
-      <div className="absolute -inset-4 rounded-3xl bg-gradient-to-tr from-cyan-500/25 via-teal-500/15 to-emerald-500/15 blur-2xl" />
-      <div className="relative rounded-xl border border-fd-border bg-fd-card shadow-2xl shadow-cyan-500/10">
-        <div className="flex items-center gap-2 border-b border-fd-border px-4 py-3">
-          <span className="size-2.5 rounded-full bg-rose-400" />
-          <span className="size-2.5 rounded-full bg-amber-400" />
-          <span className="size-2.5 rounded-full bg-emerald-400" />
-          <span className="ml-3 font-mono text-[11px] uppercase tracking-wider text-fd-muted-foreground">
+      {/* hard offset block behind, manga-panel style */}
+      <div className="pointer-events-none absolute inset-0 translate-x-3 translate-y-3 bg-cyan-500" />
+      <div className="relative border-2 border-fd-foreground bg-fd-background">
+        <div className="flex items-center justify-between border-b-2 border-fd-foreground bg-fd-foreground/5 px-4 py-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="size-3 rounded-full border-2 border-fd-foreground bg-rose-400" />
+            <span className="size-3 rounded-full border-2 border-fd-foreground bg-amber-400" />
+            <span className="size-3 rounded-full border-2 border-fd-foreground bg-emerald-400" />
+          </div>
+          <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-fd-muted-foreground">
             agent.go
           </span>
         </div>
@@ -259,38 +203,91 @@ function TerminalCard({ code }: { code: string }) {
   );
 }
 
+function Benchmarks() {
+  const rows = [
+    { value: '~1.7 µs', label: 'in-memory append' },
+    { value: '~31 µs', label: 'SQLite append' },
+    { value: '~7.5 ms', label: 'validate · 10k events' },
+  ];
+  return (
+    <section className="border-b-2 border-fd-foreground/90 bg-fd-background">
+      <div className="mx-auto grid max-w-5xl divide-x-2 divide-fd-foreground/90 sm:grid-cols-3">
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            className="px-6 py-8 text-center transition hover:bg-cyan-500/[0.06]"
+          >
+            <div className="font-mono text-3xl font-black tracking-tight text-fd-foreground">
+              {r.value}
+            </div>
+            <div className="mt-1 text-[11px] font-bold uppercase tracking-wider text-fd-muted-foreground">
+              {r.label}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Providers() {
+  const adapters = ['OpenAI', 'Anthropic', 'Gemini', 'OpenRouter', 'MCP'];
+  return (
+    <section className="border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-6 py-10">
+      <div className="mx-auto max-w-5xl">
+        <p className="mb-5 text-center text-[11px] font-bold uppercase tracking-widest text-fd-muted-foreground">
+          In-tree adapters
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {adapters.map((p) => (
+            <span
+              key={p}
+              className={`inline-flex items-center border-2 border-fd-foreground bg-fd-background px-3 py-1 font-mono text-[12px] font-bold uppercase tracking-wider transition hover:bg-fd-foreground hover:text-fd-background ${hardShadowSm}`}
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+        <p className="mx-auto mt-6 max-w-2xl text-center text-[11px] text-fd-muted-foreground/80">
+          OpenAI-compatible endpoints (Groq, Together, Ollama, vLLM, Azure, …)
+          plug in via <code className="font-mono">openai.WithBaseURL</code>.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 function FeatureGrid() {
   return (
-    <section className="px-6 py-20 lg:py-24">
+    <section className="border-b-2 border-fd-foreground/90 px-6 py-20 lg:py-24">
       <div className="mx-auto max-w-6xl">
         <div className="mb-14 max-w-2xl">
-          <span className="mb-3 inline-block rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-cyan-700 ring-1 ring-cyan-500/30 dark:text-cyan-300">
+          <span className="mb-4 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
             What you get
           </span>
-          <h2 className="mb-3 text-3xl font-semibold tracking-tight md:text-4xl">
-            A Go runtime built around the log as source of truth.
+          <h2 className="mb-3 text-4xl font-black tracking-tight md:text-5xl">
+            A Go runtime built around the log as
+            <br />
+            source of truth.
           </h2>
           <p className="text-fd-muted-foreground">
             Production-shaped from the start. Nothing about the design
             optimizes for demos.
           </p>
         </div>
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {features.map(({ icon: Icon, title, body }) => (
             <div
               key={title}
-              className="group relative overflow-hidden rounded-xl border border-fd-border bg-fd-card p-6 transition hover:border-cyan-500/40"
+              className={`group relative border-2 border-fd-foreground bg-fd-background p-6 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
             >
-              <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 transition group-hover:opacity-100" />
-              <div className="relative flex flex-col gap-3">
-                <span className="inline-flex size-9 items-center justify-center rounded-lg bg-cyan-500/10 ring-1 ring-cyan-500/30">
-                  <Icon className="size-4.5 text-cyan-600 dark:text-cyan-300" />
-                </span>
-                <h3 className="text-base font-semibold">{title}</h3>
-                <p className="text-sm leading-relaxed text-fd-muted-foreground">
-                  {body}
-                </p>
+              <div className="mb-4 inline-flex size-10 items-center justify-center border-2 border-fd-foreground bg-cyan-500/15">
+                <Icon className="size-5 text-cyan-600 dark:text-cyan-300" strokeWidth={2.25} />
               </div>
+              <h3 className="mb-2 text-base font-bold">{title}</h3>
+              <p className="text-sm leading-relaxed text-fd-muted-foreground">
+                {body}
+              </p>
             </div>
           ))}
         </div>
@@ -301,17 +298,18 @@ function FeatureGrid() {
 
 function HowItWorks() {
   return (
-    <section className="relative overflow-hidden border-y border-fd-border bg-fd-muted/20 px-6 py-20 lg:py-24">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_85%_50%,rgba(16,185,129,0.10),transparent_55%)]" />
-      <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-6 py-20 lg:py-24">
+      <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
+      <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center">
         <div>
-          <span className="mb-3 inline-block rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-500/30 dark:text-emerald-300">
+          <span className="mb-4 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
             How it works
           </span>
-          <h2 className="mb-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          <h2 className="mb-5 text-4xl font-black tracking-tight md:text-5xl">
             Every meaningful runtime action is an{' '}
-            <span className="bg-gradient-to-r from-cyan-500 to-emerald-500 bg-clip-text text-transparent">
+            <span className="relative inline-block text-emerald-500">
               event
+              <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
             </span>
             .
           </h2>
@@ -323,14 +321,14 @@ function HowItWorks() {
             Hash-chained on append; Merkle-rooted on terminal. Replay diffs the
             re-executed agent against the recording and surfaces the first
             mismatch as a typed{' '}
-            <code className="rounded bg-fd-card px-1.5 py-0.5 text-[12.5px] text-rose-600 dark:text-rose-300">
+            <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
               replay.Divergence
             </code>
             .
           </p>
           <Link
             href="/docs/events"
-            className="inline-flex items-center gap-2 text-sm font-medium text-emerald-600 transition hover:underline dark:text-emerald-400"
+            className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold uppercase tracking-wider transition hover:text-emerald-600 dark:hover:text-emerald-300"
           >
             Read the event schema
             <ArrowRight className="size-4" />
@@ -344,46 +342,41 @@ function HowItWorks() {
 
 function EventTimeline() {
   return (
-    <div className="overflow-hidden rounded-xl border border-fd-border bg-fd-background shadow-xl shadow-cyan-500/5">
-      <div className="flex items-center justify-between border-b border-fd-border bg-fd-muted/30 px-4 py-3">
-        <span className="font-mono text-[11px] uppercase tracking-wider text-fd-muted-foreground">
-          run · 01HZ8…XKJ3 · 10 events
-        </span>
-        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-emerald-700 ring-1 ring-emerald-500/30 dark:text-emerald-300">
-          ✓ Validated
-        </span>
-      </div>
-      <ol className="divide-y divide-fd-border font-mono text-[12.5px]">
-        {eventTimeline.map((ev) => {
-          const t = tagStyle[ev.tag];
-          return (
+    <div className="relative">
+      <div className="pointer-events-none absolute inset-0 translate-x-3 translate-y-3 bg-emerald-500" />
+      <div className="relative border-2 border-fd-foreground bg-fd-background">
+        <div className="flex items-center justify-between border-b-2 border-fd-foreground bg-fd-foreground/5 px-4 py-2.5">
+          <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-fd-muted-foreground">
+            run · 01HZ8…XKJ3 · 10 events
+          </span>
+          <span className="border-2 border-fd-foreground bg-emerald-500 px-2 py-0.5 font-mono text-[10px] font-black uppercase tracking-widest text-white">
+            ✓ Validated
+          </span>
+        </div>
+        <ol className="divide-y-2 divide-fd-foreground/10 font-mono text-[12.5px]">
+          {eventTimeline.map((ev) => (
             <li
               key={ev.seq}
-              className="grid grid-cols-[2.75rem_5.5rem_1fr] items-center gap-3 px-4 py-2.5"
+              className="grid grid-cols-[2.5rem_1fr] items-center gap-3 px-4 py-2.5"
             >
-              <span className="text-fd-muted-foreground">
+              <span className="font-bold text-fd-muted-foreground">
                 #{ev.seq.toString().padStart(2, '0')}
               </span>
-              <span
-                className={`inline-flex justify-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${t.pill}`}
-              >
-                {t.label}
-              </span>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 truncate">
-                <span className={`font-semibold ${t.kind}`}>{ev.kind}</span>
+                <span className={`font-bold ${tagStyle[ev.tag]}`}>{ev.kind}</span>
                 <span className="truncate text-fd-muted-foreground">{ev.note}</span>
               </div>
             </li>
-          );
-        })}
-      </ol>
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }
 
 function Footer() {
   return (
-    <footer className="border-t border-fd-border bg-fd-background px-6 py-10">
+    <footer className="border-t-2 border-fd-foreground/90 bg-fd-background px-6 py-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 text-xs text-fd-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span>© {new Date().getFullYear()} Starling contributors.</span>
@@ -392,7 +385,7 @@ function Footer() {
             Built by{' '}
             <Link
               href={author.github}
-              className="font-medium text-fd-foreground transition hover:text-cyan-500"
+              className="font-bold text-fd-foreground transition hover:text-cyan-600 dark:hover:text-cyan-300"
             >
               {author.name}
             </Link>
@@ -402,7 +395,7 @@ function Footer() {
                 <span className="text-fd-muted-foreground/50">·</span>{' '}
                 <Link
                   href={author.website}
-                  className="font-medium text-fd-foreground transition hover:text-cyan-500"
+                  className="font-bold text-fd-foreground transition hover:text-cyan-600 dark:hover:text-cyan-300"
                 >
                   jerkeyray.com
                 </Link>
@@ -411,13 +404,13 @@ function Footer() {
           </span>
         </div>
         <div className="flex items-center gap-5">
-          <Link href="/docs" className="hover:text-fd-foreground">
+          <Link href="/docs" className="font-bold uppercase tracking-wider hover:text-fd-foreground">
             Docs
           </Link>
-          <Link href="/docs/reference" className="hover:text-fd-foreground">
+          <Link href="/docs/reference" className="font-bold uppercase tracking-wider hover:text-fd-foreground">
             Reference
           </Link>
-          <Link href={repoURL} className="hover:text-fd-foreground">
+          <Link href={repoURL} className="font-bold uppercase tracking-wider hover:text-fd-foreground">
             GitHub
           </Link>
         </div>
