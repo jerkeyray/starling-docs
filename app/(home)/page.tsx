@@ -102,22 +102,22 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex min-h-[calc(100svh-56px)] items-center overflow-hidden border-b-2 border-fd-foreground/90">
+    <section className="relative flex items-center overflow-hidden border-b-2 border-fd-foreground/90 lg:min-h-[calc(100svh-56px)]">
       <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
       {/* diagonal accent stripe (manga panel break) */}
       <div className="pointer-events-none absolute -top-24 right-[-10%] h-72 w-[120%] -rotate-6 bg-cyan-500/10 dark:bg-cyan-500/[0.08]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-fd-foreground/90" />
 
-      <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-6 py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-20">
+      <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-20">
         <div>
           <Link
             href={repoURL}
-            className={`mb-7 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-xs font-bold uppercase tracking-wider text-fd-foreground transition hover:bg-cyan-500 hover:text-white ${hardShadowSm}`}
+            className={`mb-5 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-fd-foreground transition hover:bg-cyan-500 hover:text-white sm:mb-7 sm:text-xs ${hardShadowSm}`}
           >
             <GithubMark className="size-3.5" />
             <span>Pre-release · Go 1.26+</span>
           </Link>
-          <h1 className="mb-6 text-balance text-5xl font-black leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
+          <h1 className="mb-5 text-balance text-4xl font-black leading-[1.05] tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
             Event-sourced
             <br />
             agent runtime
@@ -129,7 +129,7 @@ function Hero() {
             </span>
             .
           </h1>
-          <p className="mb-9 max-w-xl text-balance text-lg leading-relaxed text-fd-muted-foreground">
+          <p className="mb-7 max-w-xl text-balance text-base leading-relaxed text-fd-muted-foreground sm:mb-9 sm:text-lg">
             Every run is replayable, auditable, and cost-enforceable. When an
             agent fails in production, replay the log and see the exact step
             today&apos;s behavior{' '}
@@ -138,17 +138,17 @@ function Hero() {
             </span>
             .
           </p>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
               href="/docs/quickstart"
-              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadow}`}
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-4 py-2 text-[13px] font-bold uppercase tracking-wider text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
             >
               Quickstart
               <ArrowRight className="size-4" />
             </Link>
             <Link
               href="/docs"
-              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadow}`}
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-[13px] font-bold uppercase tracking-wider transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-sm ${hardShadow}`}
             >
               Docs
             </Link>
@@ -163,22 +163,22 @@ function Hero() {
 function Providers() {
   const adapters = ['OpenAI', 'Anthropic', 'Gemini', 'OpenRouter', 'MCP'];
   return (
-    <section className="border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-6 py-10">
+    <section className="border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-5 text-center text-[11px] font-bold uppercase tracking-widest text-fd-muted-foreground">
+        <p className="mb-4 text-center text-[10px] font-bold uppercase tracking-widest text-fd-muted-foreground sm:mb-5 sm:text-[11px]">
           In-tree adapters
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {adapters.map((p) => (
             <span
               key={p}
-              className={`inline-flex items-center border-2 border-fd-foreground bg-fd-background px-3 py-1 font-mono text-[12px] font-bold uppercase tracking-wider transition hover:bg-fd-foreground hover:text-fd-background ${hardShadowSm}`}
+              className={`inline-flex items-center border-2 border-fd-foreground bg-fd-background px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider transition hover:bg-fd-foreground hover:text-fd-background sm:px-3 sm:py-1 sm:text-[12px] ${hardShadowSm}`}
             >
               {p}
             </span>
           ))}
         </div>
-        <p className="mx-auto mt-6 max-w-2xl text-center text-[11px] text-fd-muted-foreground/80">
+        <p className="mx-auto mt-5 max-w-2xl text-center text-[11px] leading-relaxed text-fd-muted-foreground/80 sm:mt-6">
           OpenAI-compatible endpoints (Groq, Together, Ollama, vLLM, Azure, …)
           plug in via <code className="font-mono">openai.WithBaseURL</code>.
         </p>
@@ -189,29 +189,29 @@ function Providers() {
 
 function FeatureGrid() {
   return (
-    <section className="border-b-2 border-fd-foreground/90 px-6 py-20 lg:py-24">
+    <section className="border-b-2 border-fd-foreground/90 px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-14 max-w-2xl">
-          <span className="mb-4 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
+        <div className="mb-10 max-w-2xl sm:mb-14">
+          <span className="mb-3 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white sm:mb-4">
             What you get
           </span>
-          <h2 className="mb-3 text-4xl font-black tracking-tight md:text-5xl">
+          <h2 className="mb-3 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
             A Go runtime built around the log as
-            <br />
+            <br className="hidden sm:inline" />{' '}
             source of truth.
           </h2>
-          <p className="text-fd-muted-foreground">
+          <p className="text-sm text-fd-muted-foreground sm:text-base">
             Production-shaped from the start. Nothing about the design
             optimizes for demos.
           </p>
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
           {features.map(({ icon: Icon, title, body }) => (
             <div
               key={title}
-              className={`group relative border-2 border-fd-foreground bg-fd-background p-6 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
+              className={`group relative border-2 border-fd-foreground bg-fd-background p-5 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:p-6 ${hardShadowSm}`}
             >
-              <div className="mb-4 inline-flex size-10 items-center justify-center border-2 border-fd-foreground bg-cyan-500/15">
+              <div className="mb-3 inline-flex size-10 items-center justify-center border-2 border-fd-foreground bg-cyan-500/15 sm:mb-4">
                 <Icon className="size-5 text-cyan-600 dark:text-cyan-300" strokeWidth={2.25} />
               </div>
               <h3 className="mb-2 text-base font-bold">{title}</h3>
@@ -228,13 +228,13 @@ function FeatureGrid() {
 
 function HowItWorks() {
   return (
-    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-6 py-20 lg:py-24">
+    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
       <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
       <div className="relative mx-auto max-w-3xl">
-        <span className="mb-4 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
+        <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white sm:mb-4">
           How it works
         </span>
-        <h2 className="mb-5 text-4xl font-black tracking-tight md:text-5xl">
+        <h2 className="mb-5 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
           Every meaningful runtime action is an{' '}
           <span className="relative inline-block text-emerald-500">
             event
@@ -242,22 +242,22 @@ function HowItWorks() {
           </span>
           .
         </h2>
-        <p className="mb-4 text-fd-muted-foreground">
+        <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
           Starling treats the event log as the source of truth. The runtime,
           the inspector, and replay verification all read the same shape.
         </p>
-        <p className="mb-4 text-fd-muted-foreground">
+        <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
           Every event is hash-chained on append. The terminal event commits a
           Merkle root over all priors. Mutate any prior event and{' '}
-          <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
+          <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
             eventlog.Validate
           </code>{' '}
           fails.
         </p>
-        <p className="mb-8 text-fd-muted-foreground">
+        <p className="mb-7 text-sm text-fd-muted-foreground sm:mb-8 sm:text-base">
           Replay re-executes the agent against the same wiring. The first event
           that does not byte-match surfaces as a typed{' '}
-          <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
+          <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
             replay.Divergence
           </code>{' '}
           carrying seq, kind, expected kind, class, and reason.
@@ -277,28 +277,28 @@ function HowItWorks() {
 function EventTimeline() {
   return (
     <div className="relative">
-      <div className="pointer-events-none absolute inset-0 translate-x-3 translate-y-3 bg-emerald-500" />
+      <div className="pointer-events-none absolute inset-0 translate-x-2 translate-y-2 bg-emerald-500 sm:translate-x-3 sm:translate-y-3" />
       <div className="relative border-2 border-fd-foreground bg-fd-background">
-        <div className="flex items-center justify-between border-b-2 border-fd-foreground bg-fd-foreground/5 px-4 py-2.5">
-          <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-fd-muted-foreground">
+        <div className="flex items-center justify-between gap-2 border-b-2 border-fd-foreground bg-fd-foreground/5 px-3 py-2 sm:px-4 sm:py-2.5">
+          <span className="truncate font-mono text-[10px] font-bold uppercase tracking-widest text-fd-muted-foreground sm:text-[11px]">
             run · 01HZ8…XKJ3 · 10 events
           </span>
-          <span className="border-2 border-fd-foreground bg-emerald-500 px-2 py-0.5 font-mono text-[10px] font-black uppercase tracking-widest text-white">
+          <span className="shrink-0 border-2 border-fd-foreground bg-emerald-500 px-1.5 py-0.5 font-mono text-[9px] font-black uppercase tracking-widest text-white sm:px-2 sm:text-[10px]">
             ✓ Validated
           </span>
         </div>
-        <ol className="divide-y-2 divide-fd-foreground/10 font-mono text-[12.5px]">
+        <ol className="divide-y-2 divide-fd-foreground/10 font-mono text-[11px] sm:text-[12.5px]">
           {eventTimeline.map((ev) => (
             <li
               key={ev.seq}
-              className="grid grid-cols-[2.5rem_1fr] items-center gap-3 px-4 py-2.5"
+              className="grid grid-cols-[2.25rem_1fr] items-center gap-2 px-3 py-2 sm:grid-cols-[2.5rem_1fr] sm:gap-3 sm:px-4 sm:py-2.5"
             >
               <span className="font-bold text-fd-muted-foreground">
                 #{ev.seq.toString().padStart(2, '0')}
               </span>
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 truncate">
-                <span className={`font-bold ${tagStyle[ev.tag]}`}>{ev.kind}</span>
-                <span className="truncate text-fd-muted-foreground">{ev.note}</span>
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:gap-x-3">
+                <span className={`break-all font-bold ${tagStyle[ev.tag]}`}>{ev.kind}</span>
+                <span className="break-words text-fd-muted-foreground">{ev.note}</span>
               </div>
             </li>
           ))}
@@ -310,12 +310,12 @@ function EventTimeline() {
 
 function Footer() {
   return (
-    <footer className="border-t-2 border-fd-foreground/90 bg-fd-background px-6 py-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 text-xs text-fd-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+    <footer className="border-t-2 border-fd-foreground/90 bg-fd-background px-5 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto flex max-w-6xl flex-col gap-5 text-xs text-fd-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>© {new Date().getFullYear()} Starling contributors.</span>
-          <span className="text-fd-muted-foreground/50">·</span>
-          <span>
+          <span className="hidden text-fd-muted-foreground/50 sm:inline">·</span>
+          <span className="basis-full sm:basis-auto">
             Built by{' '}
             <Link
               href={author.github}
@@ -337,7 +337,7 @@ function Footer() {
             ) : null}
           </span>
         </div>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4 sm:gap-5">
           <Link href="/docs" className="font-bold uppercase tracking-wider hover:text-fd-foreground">
             Docs
           </Link>
