@@ -1,0 +1,141 @@
+---
+title: Quickstart
+description: From zero to a running agent with a durable event log and a verified replay.
+---
+
+You'll build a single-tool agent, persist its run to SQLite, and verify the
+log replays cleanly. About five minutes if Go is already installed.
+
+## Install
+
+```bash title="terminal"
+go get github.com/jerkeyray/starling
+```
+
+Requires Go 1.26 or newer. The CGo dependency in the SQLite driver is
+optional — Starling uses `modernc.org/sqlite` so a clean Go install works.
+
+## Hello agent
+
+```go title="main.go"
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+    "time"
+
+    starling "github.com/jerkeyray/starling"
+    "github.com/jerkeyray/starling/eventlog"
+    "github.com/jerkeyray/starling/provider/openai"
+    "github.com/jerkeyray/starling/tool"
+)
+
+type clockOut struct {
+    UTC string `json:"utc"`
+}
+
+func main() {
+    prov, err := openai.New(openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+    if err != nil {
+        panic(err)
+    }
+
+    clock := tool.Typed(
+        "current_time",
+        "Return the current UTC time in RFC3339.",
+        func(_ context.Context, _ struct{}) (clockOut, error) {
+            return clockOut{UTC: time.Now().UTC().Format(time.RFC3339)}, nil
+        },
+    )
+
+    a := &starling.Agent{
+        Provider: prov,
+        Tools:    []tool.Tool{clock},
+        Log:      eventlog.NewInMemory(),
+        Config:   starling.Config{Model: "gpt-4o-mini", MaxTurns: 4},
+    }
+
+    res, err := a.Run(context.Background(), "What is the current UTC time?")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(res.FinalText)
+}
+```
+
+`tool.Typed` wraps a typed Go function as a Starling tool. The agent loop
+will dispatch the tool, append a `ToolCallScheduled` and `ToolCallCompleted`
+to the log, and surface the result back to the model.
+
+## Persist the run
+
+Swap the in-memory log for SQLite to keep events on disk:
+
+```go title="main.go"
+log, err := eventlog.NewSQLite("starling.db")
+if err != nil {
+    panic(err)
+}
+defer log.Close()
+
+a := &starling.Agent{
+    Provider: prov,
+    Tools:    []tool.Tool{clock},
+    Log:      log,
+    Config:   starling.Config{Model: "gpt-4o-mini", MaxTurns: 4},
+}
+```
+
+`NewSQLite` opens the file in WAL mode, runs schema migrations on first
+open, and returns an `EventLog` ready for concurrent read while one writer
+is active.
+
+## Replay the run
+
+Once a run is persisted you can re-execute it against the same agent and
+verify every emitted event matches the recording byte-for-byte:
+
+```go title="main.go"
+import "errors"
+
+if err := starling.Replay(ctx, log, runID, a); err != nil {
+    if errors.Is(err, starling.ErrNonDeterminism) {
+        // A tool output, prompt, or model changed since the original run.
+        // err carries a *replay.Divergence with seq + class fields.
+    }
+    panic(err)
+}
+```
+
+Replay reads recorded LLM and tool outputs from the log and never re-invokes
+the provider. If your code path hits `step.Now`, `step.Random`, or
+`step.SideEffect`, the recorded values are returned instead. Anything else
+is non-deterministic and should be moved behind a `step` helper.
+
+## Inspect a run
+
+The inspector is an embedded read-only web UI:
+
+```bash title="terminal"
+go run github.com/jerkeyray/starling/cmd/starling-inspect starling.db
+```
+
+Open the printed URL. You get a runs list, a per-run timeline, payload
+detail, replay controls, and divergence rendering.
+
+## Where to next
+
+<Cards>
+  <Card
+    title="Concepts"
+    href="/docs/concepts"
+    description="The determinism contract, side effects, and the event log as source of truth."
+  />
+  <Card
+    title="MCP tools"
+    href="/docs/mcp"
+    description="Add remote MCP server tools as ordinary Starling tools."
+  />
+</Cards>

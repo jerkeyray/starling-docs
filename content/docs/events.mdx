@@ -1,0 +1,322 @@
+---
+title: Event schema
+description: The 15 event kinds, their payloads, the canonical CBOR wire format, and the invariants the runtime enforces.
+---
+
+The event log is the source of truth. Every meaningful runtime action
+is an event. This page is the wire-format reference.
+
+## Envelope
+
+Every event is wrapped in the same struct:
+
+```go
+type Event struct {
+    RunID     string             `cbor:"run_id"`     // ULID, per-run identifier
+    Seq       uint64             `cbor:"seq"`        // monotonic per run, starts at 1
+    PrevHash  []byte             `cbor:"prev_hash"`  // BLAKE3 of canonical CBOR of prev event
+    Timestamp int64              `cbor:"ts"`         // unix nanoseconds (from step.Now)
+    Kind      Kind               `cbor:"kind"`       // discriminator
+    Payload   cborenc.RawMessage `cbor:"payload"`    // kind-specific struct, CBOR-encoded
+}
+```
+
+Hash chain: `ev.PrevHash = BLAKE3(CanonicalCBOR(prevEvent))`. The first
+event has empty `PrevHash`. Canonical CBOR follows RFC 8949 §4.2:
+shortest integer form, sorted map keys, no indefinite-length items,
+shortest float that round-trips.
+
+## Event kinds
+
+Closed set. Adding a kind is a schema-version bump.
+
+| #  | Kind                       | Emitted by                              |
+|----|----------------------------|-----------------------------------------|
+| 1  | `RunStarted`               | First event of every run.               |
+| 2  | `UserMessageAppended`      | `Resume` injecting an extra message.    |
+| 3  | `TurnStarted`              | `step.LLMCall` pre-call.                |
+| 4  | `ReasoningEmitted`         | Provider reasoning blocks (optional).   |
+| 5  | `AssistantMessageCompleted`| `step.LLMCall` on `ChunkEnd`.           |
+| 6  | `ToolCallScheduled`        | `step.CallTool` / `CallTools` pre-dispatch. |
+| 7  | `ToolCallCompleted`        | Tool returned successfully.             |
+| 8  | `ToolCallFailed`           | Tool returned an error.                 |
+| 9  | `SideEffectRecorded`       | `step.Now`, `Random`, `SideEffect`.     |
+| 10 | `BudgetExceeded`           | Budget axis tripped.                    |
+| 11 | `ContextTruncated`         | Context-window strategy trim.           |
+| 12 | `RunCompleted`             | Terminal — successful run.              |
+| 13 | `RunFailed`                | Terminal — error path.                  |
+| 14 | `RunCancelled`             | Terminal — ctx cancelled.               |
+| 15 | `RunResumed`               | Non-terminal seam from `Resume`.        |
+| 16 | `TurnFailed` (reserved)    | Mid-turn streaming failure with retry.  |
+
+## Payloads
+
+Payloads are CBOR-encoded structs. The full definitions are in
+[`event/types.go`](https://github.com/jerkeyray/starling/blob/main/event/types.go);
+the highlights:
+
+### `RunStarted` (kind 1)
+
+Pins the entire deterministic surface of the run.
+
+```go
+type RunStarted struct {
+    SchemaVersion    uint32
+    Goal             string
+    ProviderID       string
+    ModelID          string
+    APIVersion       string
+    ParamsHash       []byte
+    Params           cborenc.RawMessage
+    SystemPromptHash []byte
+    SystemPrompt     string
+    ToolRegistryHash []byte
+    ToolSchemas      []ToolSchemaRef
+    Budget           *BudgetLimits
+    StarlingVersion  string  // linked module version
+    AppVersion       string  // caller-supplied
+}
+```
+
+### `TurnStarted` / `AssistantMessageCompleted` (kinds 3, 5)
+
+```go
+type TurnStarted struct {
+    TurnID      string
+    PromptHash  []byte
+    InputTokens int64
+}
+
+type AssistantMessageCompleted struct {
+    TurnID            string
+    Text              string
+    ToolUses          []PlannedToolUse
+    StopReason        string
+    InputTokens       int64
+    OutputTokens      int64
+    CacheReadTokens   int64
+    CacheCreateTokens int64
+    CostUSD           float64
+    RawResponseHash   []byte  // BLAKE3 of canonicalized provider response
+    ProviderRequestID string
+}
+```
+
+### `ReasoningEmitted` (kind 4)
+
+Optional. Anthropic-only fields are populated only when the provider
+returned them; OpenAI reasoning summaries arrive without a signature.
+
+```go
+type ReasoningEmitted struct {
+    TurnID    string
+    Content   string
+    Sensitive bool
+    Signature []byte  // Anthropic per-block integrity signature
+    Redacted  bool    // true when Content is the opaque redacted_thinking payload
+}
+```
+
+### `ToolCallScheduled` / `Completed` / `Failed` (kinds 6, 7, 8)
+
+```go
+type ToolCallScheduled struct {
+    CallID   string
+    TurnID   string
+    ToolName string
+    Args     cborenc.RawMessage
+    Attempt  uint32
+    IdempKey string
+}
+
+type ToolCallCompleted struct {
+    CallID     string
+    Result     cborenc.RawMessage
+    DurationMs int64
+    Attempt    uint32
+}
+
+type ToolCallFailed struct {
+    CallID     string
+    Error      string
+    ErrorType  string  // "timeout" | "panic" | "tool" | "cancelled"
+    DurationMs int64
+    Attempt    uint32
+}
+```
+
+Retries share `CallID` with incrementing `Attempt`.
+
+### `SideEffectRecorded` (kind 9)
+
+Captures any non-deterministic value the agent loop consumed. `step.Now`
+emits one with `Name: "now"`; `step.Random` with `"rand"`; user calls
+to `step.SideEffect` set their own name.
+
+```go
+type SideEffectRecorded struct {
+    Name  string
+    Value cborenc.RawMessage
+}
+```
+
+### `BudgetExceeded` (kind 10)
+
+```go
+type BudgetExceeded struct {
+    Limit         string  // "input_tokens" | "output_tokens" | "usd" | "wall_clock"
+    Cap           float64
+    Actual        float64
+    Where         string  // "pre_call" | "mid_stream" | "post_call"
+    TurnID        string
+    CallID        string
+    PartialText   string
+    PartialTokens int64
+}
+```
+
+### `RunCompleted` / `Failed` / `Cancelled` (kinds 12, 13, 14)
+
+All three terminals carry a `MerkleRoot []byte` over the BLAKE3 hashes
+of every prior event. `RunCompleted` adds totals (turn count, tool-call
+count, USD, tokens, duration). `RunFailed` adds an error string and
+classification. `RunCancelled` adds a reason.
+
+### `RunResumed` (kind 15)
+
+```go
+type RunResumed struct {
+    AtSeq        uint64  // last seq from the prior process
+    ExtraMessage string
+    ReissueTools bool
+    PendingCalls int
+}
+```
+
+A seam, not a terminal. Marks the boundary between a crashed run's
+prior process and its resuming process. Validation pairing rules treat
+it as a reset point — orphaned tool-call schedules from before the
+seam don't need outcomes after it.
+
+<Mermaid chart={`
+flowchart LR
+    subgraph p1["Process 1"]
+      direction LR
+      S1("RunStarted") --> TS("TurnStarted")
+      TS --> AM("AssistantMessageCompleted")
+      AM --> SCH("ToolCallScheduled<br/>orphan"):::orphan
+    end
+    SCH --> X("crash"):::crash
+    subgraph p2["Process 2 · resume"]
+      direction LR
+      SR("RunResumed · seam"):::accent --> SCH2("ToolCallScheduled<br/>fresh CallID")
+      SCH2 --> CC("ToolCallCompleted")
+      CC --> RC("RunCompleted")
+    end
+    X -.-> SR
+    classDef accent fill:#cffafe,stroke:#06b6d4,color:#0f172a,stroke-width:1.5px;
+    classDef crash fill:#fee2e2,stroke:#f43f5e,color:#0f172a,stroke-width:1.5px;
+    classDef orphan fill:#fef3c7,stroke:#f59e0b,color:#0f172a,stroke-dasharray:4 3;
+`} />
+
+## Invariants
+
+`eventlog.Validate` enforces:
+
+1. Slice non-empty, `events[0].Seq == 1`, monotonic seq with no gaps.
+2. `RunID` consistent and non-empty across all events.
+3. Hash chain unbroken — each `PrevHash` equals BLAKE3 of canonical
+   CBOR of the previous event.
+4. Exactly one terminal event, and it's the last event.
+5. First event is `RunStarted` with `SchemaVersion ∈ [1, current]`.
+6. **Turn pairing.** Every `TurnStarted` is closed by a same-`TurnID`
+   `AssistantMessageCompleted` or `BudgetExceeded` before the next
+   `TurnStarted`. An open turn at the terminal is allowed only when
+   the terminal is `RunFailed` or `RunCancelled`.
+7. **Call pairing.** Every `ToolCallScheduled` has exactly one matching
+   `ToolCallCompleted` or `ToolCallFailed` with the same `(CallID,
+   Attempt)`. Outcomes without a prior schedule, or duplicate outcomes
+   for the same key, are rejected. A `RunResumed` seam clears pending
+   pairing state.
+8. Merkle root in the terminal payload matches the recomputed BLAKE3
+   Merkle root over every pre-terminal event.
+
+Invalid log → `ErrLogCorrupt` with a diagnostic locating the violation.
+
+## Worked example
+
+<Mermaid chart={`
+sequenceDiagram
+    autonumber
+    participant A as Agent
+    participant L as Provider
+    participant T1 as Tool C1
+    participant T2 as Tool C2
+    participant E as Event Log
+    A->>E: RunStarted
+    A->>E: TurnStarted (T1)
+    A->>L: stream
+    L-->>A: chunks
+    A->>E: AssistantMessageCompleted [C1, C2]
+    A->>E: ToolCallScheduled (C1)
+    A->>E: ToolCallScheduled (C2)
+    par
+      A->>T2: invoke
+      T2-->>A: result
+      A->>E: ToolCallCompleted (C2)
+    and
+      A->>T1: invoke
+      T1-->>A: result
+      A->>E: ToolCallCompleted (C1)
+    end
+    A->>E: TurnStarted (T2)
+    A->>L: stream
+    A->>E: AssistantMessageCompleted (no tools)
+    A->>E: RunCompleted · merkle root
+`} />
+
+A run with one LLM turn, two parallel tool calls, then a final summary
+turn:
+
+```text
+seq=1  RunStarted                  prev=nil
+seq=2  TurnStarted                 prev=H(seq1)  turn=T1
+seq=3  AssistantMessageCompleted   prev=H(seq2)  turn=T1, tool_uses=[C1, C2]
+seq=4  ToolCallScheduled           prev=H(seq3)  call=C1, attempt=1
+seq=5  ToolCallScheduled           prev=H(seq4)  call=C2, attempt=1
+seq=6  ToolCallCompleted           prev=H(seq5)  call=C2, attempt=1
+seq=7  ToolCallCompleted           prev=H(seq6)  call=C1, attempt=1
+seq=8  TurnStarted                 prev=H(seq7)  turn=T2
+seq=9  AssistantMessageCompleted   prev=H(seq8)  turn=T2, no tool_uses
+seq=10 RunCompleted                prev=H(seq9)  merkle_root=M(seq1..seq9)
+```
+
+Parallel tool completions land in arrival order — replay reproduces
+that ordering deterministically because results are read from the log,
+not re-executed.
+
+## Size expectations
+
+Order of magnitude per event:
+
+| Kind                          | Typical size  |
+|-------------------------------|---------------|
+| `RunStarted`                  | 1–10 KB       |
+| `TurnStarted`                 | under 1 KB    |
+| `AssistantMessageCompleted`   | 2–50 KB       |
+| `ToolCallScheduled/Completed` | 1–20 KB each  |
+| Terminals                     | under 1 KB    |
+
+A typical 5-turn run with 10 tool calls is ~100–500 KB. The retention
+patterns are documented under [Operations](/docs/operations).
+
+## Schema evolution
+
+Pre-1.0: any change permitted, schema-version bump on breaks.
+After 1.0:
+
+- Additive (new optional fields, new kinds) → minor bump.
+- Breaking → major bump.
+- Replayer refuses logs whose schema version is newer than its own major.
+- Old logs remain replayable forever — pin the binary version, or use the
+  migration tools shipped at the major bump.

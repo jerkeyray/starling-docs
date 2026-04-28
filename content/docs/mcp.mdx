@@ -1,0 +1,131 @@
+---
+title: MCP tools
+description: Mount remote MCP servers as ordinary Starling tools. stdio subprocess, streamable HTTP, replay-safe.
+---
+
+`tool/mcp` adapts [Model Context Protocol](https://modelcontextprotocol.io)
+server tools onto Starling's `tool.Tool` interface. The core agent runtime
+stays MCP-agnostic; this package is the bridge.
+
+## Three transports
+
+```go
+import (
+    "os/exec"
+    mcptool "github.com/jerkeyray/starling/tool/mcp"
+)
+
+// 1. stdio subprocess server.
+client, err := mcptool.NewCommand(ctx,
+    exec.Command("uvx", "mcp-server-filesystem", "/tmp"),
+    mcptool.WithToolNamePrefix("fs_"),
+)
+
+// 2. streamable HTTP server.
+client, err = mcptool.NewHTTP(ctx, "https://mcp.example.com/sse", nil)
+
+// 3. any custom mcp.Transport.
+client, err = mcptool.New(ctx, transport)
+```
+
+Each constructor lists the server's tools at connect time and caches them.
+Call `client.Tools(ctx)` to retrieve `[]tool.Tool` for use with `Agent`,
+or `client.RefreshTools(ctx)` to re-list.
+
+## Wire into an agent
+
+```go
+client, err := mcptool.NewCommand(ctx,
+    exec.Command("uvx", "mcp-server-filesystem", "/tmp"),
+    mcptool.WithToolNamePrefix("fs_"),
+    mcptool.WithCallTimeout(10*time.Second),
+)
+if err != nil {
+    panic(err)
+}
+defer client.Close()
+
+mcpTools, err := client.Tools(ctx)
+if err != nil {
+    panic(err)
+}
+
+a := &starling.Agent{
+    Provider: prov,
+    Tools:    append(localTools, mcpTools...),
+    Log:      log,
+    Config:   starling.Config{Model: "gpt-4o-mini", MaxTurns: 8},
+}
+```
+
+## Options
+
+| Option                                 | Purpose                                                          |
+|----------------------------------------|------------------------------------------------------------------|
+| `WithClientInfo(name, version)`        | Override the client identity sent on `initialize`.               |
+| `WithToolNamePrefix(p)`                | Namespace remote tools — useful when mounting multiple servers.  |
+| `WithIncludeTools(...)`                | Restrict to the named remote tools.                              |
+| `WithExcludeTools(...)`                | Drop the named remote tools.                                     |
+| `WithCallTimeout(d)`                   | Per-call deadline. Zero leaves cancellation to the caller's ctx. |
+| `WithMaxOutputBytes(n)`                | Cap the JSON-encoded result. Defaults to 1 MiB.                  |
+| `WithTextOnly(true)`                   | Reject non-text content rather than forwarding it.               |
+| `WithTransientErrorClassifier(fn)`     | Classify transport errors as `tool.ErrTransient` for retries.    |
+
+## Replay safety
+
+<Mermaid chart={`
+flowchart LR
+    subgraph live["Live run"]
+      direction LR
+      A1("Agent") --> SE1("step.SideEffect")
+      SE1 --> M("MCP server"):::ext
+      SE1 --> L1[("Event log")]:::accent
+    end
+    subgraph rep["Replay"]
+      direction LR
+      A2("Agent") --> SE2("step.SideEffect")
+      SE2 --> L2[("Recorded log")]:::accent
+      SE2 -. no network .-> M2("MCP server"):::muted
+    end
+    classDef accent fill:#cffafe,stroke:#06b6d4,color:#0f172a,stroke-width:1.5px;
+    classDef ext fill:#fee2e2,stroke:#f43f5e,color:#0f172a,stroke-width:1.5px;
+    classDef muted fill:#f1f5f9,stroke:#cbd5e1,color:#94a3b8,stroke-dasharray:4 3;
+`} />
+
+Each MCP tool call goes through `step.SideEffect` keyed on
+`mcp/<remote-name>`. The first live invocation contacts the server,
+records the result as a `SideEffectRecorded` event, and returns. Replay
+reads the recorded value out of the log and never re-contacts the server.
+
+The same applies under `(*Agent).Resume`. An orphaned MCP call from a
+crashed run is reissued under a fresh `CallID`; the new live invocation is
+recorded as its own SideEffect.
+
+This means your recorded runs are portable. You can replay them on a
+machine that has no network access to the MCP server.
+
+## Tool errors vs transport errors
+
+The MCP protocol distinguishes two failure modes; Starling preserves both.
+
+**Server returned `IsError: true`.** The remote tool ran and decided the
+call failed (bad input, business-rule rejection). `Execute` returns a
+typed `*mcptool.ToolError` carrying the server's content. Use `errors.As`
+to inspect.
+
+**Transport or protocol error.** Connection refused, timeout, malformed
+JSON-RPC, etc. `Execute` returns the underlying error wrapped with the
+tool name. If `WithTransientErrorClassifier` reports the error retryable,
+it's also wrapped with `tool.ErrTransient` so the caller's
+`step.ToolCall{Idempotent: true, MaxAttempts: N}` retries kick in.
+
+## What's intentionally not adapted
+
+`tool/mcp` ships with a deliberately narrow surface:
+
+- **MCP resources** — file-tree-style reads; not yet wired.
+- **MCP prompts** — server-provided prompt templates; deferred.
+- **MCP sampling** — server asking the client to run a model; deferred.
+
+Tools cover the common ADK-parity case. If you hit a wall on resources or
+prompts, file an issue with the use case before building it locally.

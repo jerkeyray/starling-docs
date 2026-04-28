@@ -1,0 +1,480 @@
+---
+title: Reference
+description: Per-package API reference — types, signatures, and short examples for the Starling Go runtime.
+---
+
+This page is the prose reference. Source links open the canonical file
+on GitHub for the long tail of options and helpers; everything
+load-bearing is documented here.
+
+## Package layout
+
+```text
+github.com/jerkeyray/starling/                root: Agent, Run, Resume, Replay
+                            /budget           Budget caps + per-model prices
+                            /event            Event types + canonical CBOR
+                            /eventlog         EventLog interface + backends
+                            /step             Determinism helpers (Now, SideEffect, …)
+                            /tool             tool.Tool + tool.Typed
+                            /tool/builtin     Reference tool implementations
+                            /tool/mcp         MCP tool adapter
+                            /provider         Provider interface + types
+                            /provider/openai  OpenAI-compatible adapter
+                            /provider/anthropic
+                            /provider/gemini
+                            /provider/openrouter
+                            /provider/conformance
+                            /replay           Verify, Stream, Divergence
+                            /inspect          Embedded web UI
+                            /cmd/starling     CLI: validate, export, migrate, schema-version
+                            /cmd/starling-inspect  Standalone inspector binary
+```
+
+## starling (root)
+
+The root package wires the agent loop, run lifecycle, and replay surface.
+
+### Agent
+
+```go
+type Agent struct {
+    Provider  provider.Provider
+    Tools     []tool.Tool
+    Log       eventlog.EventLog
+    Config    Config
+    Budget    *Budget
+    Metrics   *Metrics
+    Namespace string  // optional run-id prefix
+}
+```
+
+`Agent` is configuration plus dependencies. It holds no per-run state;
+all state lives in `Log`. Two `Agent` instances pointing at the same log
+are interchangeable.
+
+### Config
+
+| Field                    | Default   | Notes                                                                      |
+|--------------------------|-----------|----------------------------------------------------------------------------|
+| `Model`                  | required  | Provider-specific model id, e.g. `"gpt-4o-mini"`.                          |
+| `MaxTurns`               | `0` = ∞   | Caps the ReAct loop. `0` is allowed but not recommended.                   |
+| `SystemPrompt`           | `""`      | Prepended to every conversation. Captured into `RunStarted`.               |
+| `Params`                 | `nil`     | Provider-specific param blob (CBOR). Hashed into `RunStarted.ParamsHash`.  |
+| `RequireRawResponseHash` | `false`   | Fail any turn whose `ChunkEnd` lacks a 32-byte raw-response digest.        |
+| `AppVersion`             | `""`      | Stamped into `RunStarted` alongside the Starling library version.          |
+| `EmitTimeout`            | `0` = ∞   | Bounds each event-log Append under `context.WithoutCancel`.                |
+| `SkipSchemaCheck`        | `false`   | Disables `eventlog.Preflight` on `Run` / `Resume`. Tests only.             |
+| `Logger`                 | `slog.Default()` | Structured slog records for run lifecycle.                          |
+
+### Run / Resume / Replay
+
+```go
+func (a *Agent) Run(ctx context.Context, goal string) (*RunResult, error)
+func (a *Agent) Resume(ctx context.Context, runID, extraMessage string) (*RunResult, error)
+func (a *Agent) ResumeWith(ctx context.Context, runID, extraMessage string, opts ...ResumeOption) (*RunResult, error)
+func Replay(ctx context.Context, log eventlog.EventLog, runID string, a *Agent) error
+```
+
+- `Run` is the live entry. Mints a fresh run id (namespaced when
+  `Namespace != ""`), emits `RunStarted`, runs the loop, returns
+  `*RunResult` carrying the terminal kind, totals, and Merkle root.
+- `Resume` re-enters a run from its last seq. Pending tool calls
+  are reissued under fresh `CallID`s; the orphaned `ToolCallScheduled`
+  stays for audit. A `RunResumed` seam event marks the boundary.
+- `Replay` re-executes against the same agent wiring. Returns
+  `nil` on a clean replay or a `*replay.Divergence` wrapped with
+  `ErrNonDeterminism` on the first mismatch.
+
+### RunResult
+
+```go
+type RunResult struct {
+    RunID         string
+    FinalText     string
+    TurnCount     int
+    ToolCallCount int
+    TotalCostUSD  float64
+    InputTokens   int64
+    OutputTokens  int64
+    Duration      time.Duration
+    TerminalKind  event.Kind  // RunCompleted | RunFailed | RunCancelled
+    MerkleRoot    []byte
+}
+```
+
+The same values are recoverable by replaying the log; `RunResult` is a
+convenience.
+
+### Sentinel errors
+
+| Error                       | Meaning                                                                                  |
+|-----------------------------|------------------------------------------------------------------------------------------|
+| `ErrNonDeterminism`         | Replay diverged from the recording. Wraps `*replay.Divergence`.                          |
+| `ErrPartialToolCall`        | `Resume` saw pending tool calls and `WithReissueTools(false)` was set.                   |
+| `ErrRunNotFound`            | Resume target run id is absent from the log.                                             |
+| `ErrRunAlreadyTerminal`     | Resume target ended with a terminal event.                                               |
+| `ErrRunInUse`               | Another writer already advanced the chain.                                               |
+| `ErrSchemaVersionMismatch`  | The recording's schema version is unsupported by this binary.                            |
+
+Source: [`agent.go`](https://github.com/jerkeyray/starling/blob/main/agent.go),
+[`config.go`](https://github.com/jerkeyray/starling/blob/main/config.go),
+[`resume.go`](https://github.com/jerkeyray/starling/blob/main/resume.go),
+[`result.go`](https://github.com/jerkeyray/starling/blob/main/result.go).
+
+## budget
+
+```go
+type Budget struct {
+    MaxInputTokens  int64
+    MaxOutputTokens int64
+    MaxUSD          float64
+    MaxWallClock    time.Duration
+}
+```
+
+Zero on any field disables that axis. Enforcement points:
+
+| Axis              | When                                              |
+|-------------------|---------------------------------------------------|
+| `MaxInputTokens`  | Pre-call, before every `step.LLMCall`.            |
+| `MaxOutputTokens` | Mid-stream on every `ChunkUsage`.                 |
+| `MaxUSD`          | Mid-stream using `budget/prices.go` per-model rates. |
+| `MaxWallClock`    | `context.WithDeadline` wrapping the run.          |
+
+A trip emits `BudgetExceeded{Limit, Cap, Actual, Where}` and unwinds
+with `RunFailed{ErrorType:"budget"}`. Source:
+[`budget/`](https://github.com/jerkeyray/starling/tree/main/budget).
+
+## event
+
+The wire format. Every event carries:
+
+```go
+type Event struct {
+    RunID     string
+    Seq       uint64
+    PrevHash  []byte           // BLAKE3 of canonical CBOR of prev event
+    Timestamp int64            // Unix nanoseconds
+    Kind      Kind
+    Payload   cborenc.RawMessage  // kind-specific struct, CBOR-encoded
+}
+```
+
+There are 15 event kinds; the full schema with payload definitions and
+invariants is on the [Events](/docs/events) page.
+
+```go
+func Marshal(ev Event) ([]byte, error)
+func Unmarshal(data []byte) (Event, error)
+func Hash(data []byte) []byte
+func ToJSON(ev Event) ([]byte, error)
+```
+
+`event.HashSize` is 32. Each typed payload has an `EncodePayload[T]`
+helper; each kind has a matching accessor (`AsRunStarted`, `AsToolCallCompleted`, …).
+
+Source: [`event/`](https://github.com/jerkeyray/starling/tree/main/event).
+
+## eventlog
+
+The persistence interface.
+
+```go
+type EventLog interface {
+    Append(ctx context.Context, runID string, ev event.Event) error
+    Read(ctx context.Context, runID string) ([]event.Event, error)
+    Stream(ctx context.Context, runID string) (<-chan event.Event, error)
+    Close() error
+}
+
+type RunLister interface {
+    ListRuns(ctx context.Context) ([]RunSummary, error)
+}
+```
+
+All three built-in backends satisfy `RunLister`.
+
+### Backends
+
+| Constructor                                        | Use when                                                            |
+|----------------------------------------------------|---------------------------------------------------------------------|
+| `NewInMemory()`                                    | Tests, demos, ephemeral CLI tools.                                  |
+| `NewSQLite(path, opts...)`                         | Single-host services, edge nodes.                                   |
+| `NewPostgres(db *sql.DB, opts...)`                 | Multi-host services. Per-run advisory locks serialize appenders.    |
+
+Common options:
+
+- `WithReadOnly()` (SQLite) / `WithReadOnlyPG()` (Postgres) — inspector mode.
+- `WithAutoMigratePG()` — run schema migrations on connect.
+
+### Validation, migrations, preflight
+
+```go
+func Validate(events []event.Event) error
+func SchemaVersion(ctx context.Context, log EventLog) (int, error)
+func Migrate(ctx context.Context, log EventLog, opts ...MigrateOption) (MigrationReport, error)
+func Preflight(ctx context.Context, log EventLog) error
+func WithMetrics(log EventLog, obs AppendObserver) EventLog
+```
+
+`Validate` checks seq monotonicity, hash chain, terminal placement,
+Merkle root, and the semantic pairing rules from the
+[Event schema](/docs/events).
+
+`Preflight` returns `ErrSchemaOutdated` or `ErrSchemaTooNew` on a
+mismatch between the database and the binary. `Agent.Run`,
+`Agent.Resume`, and the inspector all call it on startup unless
+`Config.SkipSchemaCheck = true`.
+
+`WithMetrics` wraps any `EventLog` so direct `Append` callers (outside
+`step.emit`) see the same latency histograms the agent loop records.
+
+### Sentinel errors
+
+`ErrLogClosed`, `ErrLogCorrupt`, `ErrInvalidAppend`, `ErrReadOnly`,
+`ErrSchemaOutdated`, `ErrSchemaTooNew`.
+
+Source: [`eventlog/`](https://github.com/jerkeyray/starling/tree/main/eventlog).
+
+## step
+
+The determinism layer. Anything non-deterministic in the agent loop must
+go through `step` so replay can reproduce it byte-for-byte.
+
+### Helpers
+
+```go
+func Now(ctx context.Context) time.Time
+func Random(ctx context.Context) int64
+func SideEffect[T any](ctx context.Context, name string, fn func() (T, error)) (T, error)
+```
+
+Live mode runs `fn` and emits a `SideEffectRecorded` event. Replay reads
+the recorded value back without invoking `fn`. `T` must be CBOR-serializable.
+
+### LLM calls
+
+```go
+func LLMCall(ctx context.Context, req *provider.Request) (*provider.Response, error)
+```
+
+Drives a streaming completion through the configured provider. Emits
+`TurnStarted`, optional `ReasoningEmitted`, and `AssistantMessageCompleted`.
+Enforces input/output/USD budgets inline. Validates the chunk state
+machine (rejects EOF before `ChunkEnd`, duplicate `ChunkToolUseStart`,
+chunks after `ChunkEnd`).
+
+### Tool dispatch
+
+```go
+type ToolCall struct {
+    CallID      string
+    TurnID      string
+    Name        string
+    Args        json.RawMessage
+    Idempotent  bool
+    MaxAttempts int
+    Backoff     func(attempt int) time.Duration
+}
+
+func CallTool(ctx context.Context, c ToolCall) (json.RawMessage, error)
+func CallTools(ctx context.Context, calls []ToolCall) ([]ToolResult, error)
+func NewCallID() string
+```
+
+`CallTool` is sequential, `CallTools` fans out with a semaphore (cap is
+`Config.MaxParallelTools`, default 8). Retries wrap on
+`tool.ErrTransient` when `Idempotent` and `MaxAttempts > 1`.
+
+### Replay errors
+
+```go
+type MismatchError struct {
+    Seq          uint64
+    Kind         event.Kind
+    ExpectedKind event.Kind
+    Class        MismatchClass  // "exhausted" | "kind" | "payload" | "turn_id"
+    Reason       string
+}
+
+var (
+    ErrReplayMismatch         = errors.New("step: replay mismatch")
+    ErrInvalidStream          = errors.New("step: invalid provider stream")
+    ErrMissingRawResponseHash = errors.New("step: provider returned empty RawResponseHash")
+)
+```
+
+`MismatchError.Is(ErrReplayMismatch)` is true; route on it with
+`errors.Is`, extract structured fields with `errors.As`. The replay
+package lifts these into `replay.Divergence` (next section).
+
+Source: [`step/`](https://github.com/jerkeyray/starling/tree/main/step).
+
+## tool
+
+```go
+type Tool interface {
+    Name() string
+    Description() string
+    Schema() json.RawMessage  // JSON Schema for input
+    Execute(ctx context.Context, in json.RawMessage) (json.RawMessage, error)
+}
+```
+
+The convenience wrapper:
+
+```go
+func Typed[In, Out any](name, description string, fn func(context.Context, In) (Out, error)) Tool
+```
+
+`Typed` derives a JSON Schema from `In` via reflection. Errors should
+wrap `tool.ErrTransient` to opt the call into retry under
+`step.ToolCall{Idempotent: true, MaxAttempts: N}`.
+
+### MCP adapter (`tool/mcp`)
+
+Three constructors:
+
+```go
+func New(ctx context.Context, transport mcp.Transport, opts ...Option) (*Client, error)
+func NewCommand(ctx context.Context, cmd *exec.Cmd, opts ...Option) (*Client, error)
+func NewHTTP(ctx context.Context, endpoint string, httpClient *http.Client, opts ...Option) (*Client, error)
+```
+
+Each connects, lists remote tools, and exposes them via
+`client.Tools(ctx) []tool.Tool`. Calls route through `step.SideEffect`
+so replay never re-contacts the server. Full options table on the
+[MCP](/docs/mcp) page.
+
+### Built-in tools
+
+`tool/builtin/` ships HTTP-fetch and read-file references. Use them
+directly or as templates.
+
+Source: [`tool/`](https://github.com/jerkeyray/starling/tree/main/tool),
+[`tool/mcp/`](https://github.com/jerkeyray/starling/tree/main/tool/mcp).
+
+## provider
+
+The streaming-completion abstraction.
+
+```go
+type Provider interface {
+    Info() Info
+    Stream(ctx context.Context, req *Request) (EventStream, error)
+}
+
+type Capabler interface {
+    Capabilities() Capabilities
+}
+
+type Request struct {
+    Model           string
+    SystemPrompt    string
+    Messages        []Message
+    Tools           []ToolDefinition
+    ToolChoice      string         // "" | "auto" | "any" | "none" | tool-name
+    StopSequences   []string
+    TopK            *int
+    MaxOutputTokens int
+    Params          cborenc.RawMessage  // vendor-specific escape hatch
+}
+```
+
+`EventStream` yields `StreamChunk` values. Chunk kinds:
+`ChunkText`, `ChunkReasoning`, `ChunkRedactedThinking`,
+`ChunkToolUseStart/Delta/End`, `ChunkUsage`, `ChunkEnd`. The state
+machine is enforced by `step.LLMCall`.
+
+### Adapters
+
+| Package                       | Use when                                                                  |
+|-------------------------------|---------------------------------------------------------------------------|
+| `provider/openai`             | OpenAI, Groq, Together, Ollama, vLLM, LM Studio, Azure, anything else OpenAI-compatible (set `WithBaseURL`). |
+| `provider/anthropic`          | Messages API. Tool use, extended thinking with signature, prompt caching. |
+| `provider/gemini`             | Native Google Gemini.                                                     |
+| `provider/openrouter`         | OpenRouter — thin wrapper over the OpenAI adapter with attribution headers. |
+| `provider/conformance`        | The contract test every adapter passes.                                   |
+
+Each adapter advertises its support set via
+`provider.Capabler.Capabilities()`. The conformance suite skips
+capability-gated assertions when the adapter reports `false`.
+
+Source: [`provider/`](https://github.com/jerkeyray/starling/tree/main/provider).
+
+## replay
+
+```go
+func Verify(ctx context.Context, log eventlog.EventLog, runID string, a Agent) error
+func Stream(ctx context.Context, factory Factory, log eventlog.EventLog, runID string) (<-chan ReplayStep, error)
+
+type Factory func(ctx context.Context) (Agent, error)
+
+type Divergence struct {
+    RunID        string
+    Seq          uint64
+    Kind         event.Kind
+    ExpectedKind event.Kind
+    Class        step.MismatchClass
+    Reason       string
+}
+
+var ErrNonDeterminism = errors.New("replay: non-determinism detected")
+```
+
+`Verify` is the headless check — returns `nil` on clean replay or
+wraps `*Divergence` with `ErrNonDeterminism` on the first mismatch.
+The root `starling.Replay` is a thin wrapper that takes `*Agent`
+directly.
+
+`Stream` is the inspector path — yields a `ReplayStep` per emitted
+event so the UI can render recorded vs produced side-by-side. The final
+step has `Diverged: true` when the replay didn't reach the recorded
+terminal.
+
+Source: [`replay/`](https://github.com/jerkeyray/starling/tree/main/replay).
+
+## inspect
+
+Embedded HTTP handler that serves the runs list, per-run timeline,
+event detail, live tail (SSE), and replay. The standalone binary at
+`cmd/starling-inspect` opens any SQLite log read-only.
+
+```go
+func New(log eventlog.EventLog, opts ...Option) *Server
+
+func WithAuth(fn Authenticator) Option
+func BearerAuth(token string) Authenticator
+func WithReplayer(factory replay.Factory) Option
+```
+
+Read-only by construction, CSRF-protected on the two replay POST
+endpoints, bearer-token via `Authenticator`. Front it with TLS in
+production — see the [Operations](/docs/operations) page.
+
+Source: [`inspect/`](https://github.com/jerkeyray/starling/tree/main/inspect),
+[`cmd/starling-inspect/`](https://github.com/jerkeyray/starling/tree/main/cmd/starling-inspect).
+
+## CLI (`cmd/starling`)
+
+```bash
+starling validate <db> [<runID>]   # hash chain + Merkle check
+starling export   <db> <runID>     # NDJSON event dump
+starling inspect  [flags] <db>     # local web inspector (read-only)
+starling replay   <db> <runID>     # headless replay (dual-mode binary only)
+starling migrate  [-dry-run] <db>  # apply pending schema migrations
+starling schema-version <db>       # print the current schema version
+```
+
+The stock binary is SQLite-only. Building a dual-mode binary that
+links your agent factory enables `starling replay` and
+`starling inspect` with replay re-execution.
+
+Source: [`cmd/starling/`](https://github.com/jerkeyray/starling/tree/main/cmd/starling).
+
+## Examples
+
+| Path                                    | What it shows                                                                            |
+|-----------------------------------------|------------------------------------------------------------------------------------------|
+| [`examples/m1_hello`](https://github.com/jerkeyray/starling/tree/main/examples/m1_hello)             | Minimal hello agent, dual-mode inspector, OTel stdout exporter.        |
+| [`examples/incident_triage`](https://github.com/jerkeyray/starling/tree/main/examples/incident_triage) | Multi-tool agent, budgets, Resume, replay regression test, Postgres support, Prometheus, OpenTelemetry. |

@@ -1,0 +1,12 @@
+{
+  "title": "Docs",
+  "pages": [
+    "index",
+    "quickstart",
+    "concepts",
+    "events",
+    "mcp",
+    "operations",
+    "reference"
+  ]
+}

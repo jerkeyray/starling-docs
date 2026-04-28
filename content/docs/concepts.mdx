@@ -1,0 +1,161 @@
+---
+title: Concepts
+description: The event log, the determinism contract, replay, side effects, and how Starling thinks about agents.
+---
+
+Starling treats the event log as the source of truth. The runtime, the
+inspector, and replay verification all read the same shape. Once you accept
+that, every other design choice falls out.
+
+<Mermaid chart={`
+flowchart LR
+    subgraph rt["Agent runtime"]
+      direction TB
+      A("Agent.Run · Resume") --> S("step package")
+      S --> P("Provider")
+      S --> T("Tools")
+    end
+    L[("Event log")]:::accent
+    V("Validate")
+    R("Replay")
+    I("Inspector")
+    S -- emit --> L
+    L --> V
+    L --> R
+    L --> I
+    R -. byte-compare .-> S
+    classDef accent fill:#cffafe,stroke:#06b6d4,color:#0f172a,stroke-width:1.5px;
+`} />
+
+## The event log
+
+Every run is an append-only sequence of events:
+
+```text
+seq=1  RunStarted        (model, tools, system prompt, params hash)
+seq=2  TurnStarted       (turn id, prompt hash)
+seq=3  AssistantMessageCompleted  (full text, tool plans, raw response hash)
+seq=4  ToolCallScheduled
+seq=5  ToolCallCompleted
+seq=6  TurnStarted
+…
+seq=N  RunCompleted | RunFailed | RunCancelled  (Merkle root of all priors)
+```
+
+Every event carries a `PrevHash` field equal to BLAKE3 over the canonical
+CBOR of the previous event. The terminal event commits a Merkle root over
+all priors. Tampering with any earlier event breaks both the chain and the
+root; `eventlog.Validate` returns `ErrLogCorrupt`.
+
+The full schema lives on the [Event schema](/docs/events) page.
+
+## The determinism contract
+
+Starling borrows Temporal's determinism model. The agent loop is allowed
+to do exactly two things:
+
+1. Read events from the log.
+2. Emit commands that the runtime reifies as new events.
+
+Anything else — wall clock, RNG, HTTP, filesystem — must go through the
+`step` package:
+
+```go
+now := step.Now(ctx)        // recorded once, returned on replay
+n := step.Random(ctx)        // same idea, deterministic
+val, err := step.SideEffect(ctx, "name", func() (T, error) {
+    // any non-deterministic effect goes here
+})
+```
+
+`step` helpers append a `SideEffectRecorded` event on the live run. Replay
+reads that event and returns the recorded value without invoking the
+closure. This is what makes a run portable — the recording carries every
+non-deterministic value alongside the agent's deterministic logic.
+
+## Replay
+
+`starling.Replay(ctx, log, runID, agent)` re-executes a recorded run
+against the same agent wiring. Every event the loop attempts to emit is
+compared to the recording at the matching seq:
+
+- `Kind` mismatch — the loop produced a different event type.
+- `Payload` mismatch — same kind, different bytes.
+- `Exhausted` — the loop ran past the end of the recording.
+
+Mismatches surface as a typed `*replay.Divergence` carrying `RunID`,
+`Seq`, `Kind`, `ExpectedKind`, `Class`, and `Reason`. Wrap with
+`errors.Is(err, starling.ErrNonDeterminism)` to detect; use `errors.As`
+to get the structured fields.
+
+Replay never calls the provider. Tool execution still runs but reads
+recorded results out of the log when wrapped in `step.SideEffect`.
+
+## Resume
+
+When a run crashes mid-flight, `(*Agent).Resume(ctx, runID, extra)`
+reconstructs the conversation state from the log and re-enters the agent
+loop in a new process. Pending tool calls are re-issued under fresh
+`CallID`s; the orphaned `ToolCallScheduled` from the prior process stays
+in the log for audit. A `RunResumed` seam event marks the boundary.
+
+## Tools
+
+A tool is anything implementing `tool.Tool`:
+
+```go
+type Tool interface {
+    Name() string
+    Description() string
+    Schema() json.RawMessage  // JSON Schema for input
+    Execute(ctx context.Context, in json.RawMessage) (json.RawMessage, error)
+}
+```
+
+`tool.Typed[In, Out](name, description, fn)` is the convenience wrapper
+that derives the JSON Schema from your input type via reflection. For
+non-deterministic tools (HTTP, filesystem, anything beyond pure compute),
+wrap the work in `step.SideEffect` so replay returns the recorded result.
+
+## Budgets
+
+Four axes:
+
+| Axis              | Where enforced                                  |
+|-------------------|-------------------------------------------------|
+| `MaxInputTokens`  | Pre-call, before every LLM call                 |
+| `MaxOutputTokens` | Mid-stream, on every usage chunk                |
+| `MaxUSD`          | Mid-stream, using per-model prices              |
+| `MaxWallClock`    | `context.WithDeadline` wrapping the run         |
+
+A trip emits a `BudgetExceeded` event with `(limit, cap, actual, where)`
+and unwinds the run with `RunFailed{ErrorType:"budget"}`. Budgets are
+inline runtime checks, not after-the-fact dashboards.
+
+## Backends
+
+Three event-log implementations:
+
+- `eventlog.NewInMemory()` — tests, demos, ephemeral CLI tools.
+- `eventlog.NewSQLite(path)` — single-host services. WAL mode + per-run
+  `_txlock=immediate` makes one-writer-many-readers correct.
+- `eventlog.NewPostgres(db)` — multi-host services. Per-run advisory
+  locks serialize appenders by run.
+
+All three implement the same `EventLog` interface and the same migration
+contract.
+
+## What's intentionally out of scope
+
+The plan calls these out and Starling doesn't ship them:
+
+- Prompt templating language
+- Visual / no-code builder
+- Generic chain or graph DSL
+- Built-in vector database
+- Hosted Starling service
+- Large bundled tool registry in core
+- Built-in memory store
+
+You write Go. The runtime stays small. The plan is to win on a narrow
+wedge — production debugging via replay — not on breadth.

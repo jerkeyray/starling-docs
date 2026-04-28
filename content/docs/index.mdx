@@ -1,13 +1,65 @@
 ---
-title: Hello World
-description: Your first document
+title: Welcome
+description: Starling is a Go runtime for building LLM agents where every run is recorded as a hash-chained event log.
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+import { Rocket, Compass, ScrollText, Plug, Wrench, BookOpen } from 'lucide-react';
 
-## What is Next?
+Starling is a Go runtime for building LLM agents where every run is recorded
+as an append-only, BLAKE3-chained, Merkle-rooted event log. When an agent
+fails in production, you inspect the log, replay it against the same agent
+wiring, and see the exact step where today's behavior diverges.
+
+This site is the canonical entry point. The source lives on
+[GitHub](https://github.com/jerkeyray/starling).
+
+## Get started
 
 <Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
+  <Card
+    icon={<Rocket className="text-cyan-500" />}
+    title="Quickstart"
+    href="/docs/quickstart"
+    description="Hello agent in five minutes. In-memory log, durable SQLite, replay verification."
+  />
+  <Card
+    icon={<Compass className="text-emerald-500" />}
+    title="Concepts"
+    href="/docs/concepts"
+    description="Event log, replay, side effects, the determinism contract. Read this once."
+  />
+</Cards>
+
+## Reference
+
+<Cards>
+  <Card
+    icon={<ScrollText className="text-cyan-500" />}
+    title="Event schema"
+    href="/docs/events"
+    description="The 15 event kinds, payloads, the canonical CBOR wire format, invariants."
+  />
+  <Card
+    icon={<BookOpen className="text-emerald-500" />}
+    title="API reference"
+    href="/docs/reference"
+    description="Per-package types, signatures, and short examples."
+  />
+</Cards>
+
+## Operate
+
+<Cards>
+  <Card
+    icon={<Plug className="text-cyan-500" />}
+    title="MCP tools"
+    href="/docs/mcp"
+    description="Mount remote MCP servers as Starling tools. stdio + streamable HTTP."
+  />
+  <Card
+    icon={<Wrench className="text-emerald-500" />}
+    title="Operations"
+    href="/docs/operations"
+    description="Deployment, security, retention, metrics, tracing — what an operator needs."
+  />
 </Cards>
