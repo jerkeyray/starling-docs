@@ -78,24 +78,6 @@ const tagStyle: Record<typeof eventTimeline[number]['tag'], string> = {
   terminal: 'text-rose-600 dark:text-rose-300',
 };
 
-const heroSnippet = `import (
-    starling "github.com/jerkeyray/starling"
-    "github.com/jerkeyray/starling/eventlog"
-    "github.com/jerkeyray/starling/provider/openai"
-)
-
-prov, _ := openai.New(openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
-
-a := &starling.Agent{
-    Provider: prov,
-    Log:      eventlog.NewSQLite("starling.db"),
-    Config:   starling.Config{Model: "gpt-4o-mini", MaxTurns: 4},
-}
-
-res, err := a.Run(ctx, "Summarize today's incidents.")
-// every prompt, tool call, and chunk lands in the log →
-// replay it later, deterministically, against the same wiring`;
-
 // Manga-style hard offset shadow. Two-tone, no blur.
 const hardShadow =
   'shadow-[6px_6px_0_0_var(--color-fd-foreground)] dark:shadow-[6px_6px_0_0_rgb(244_244_245)]';
@@ -173,33 +155,9 @@ function Hero() {
             </Link>
           </div>
         </div>
-        <TerminalCard code={heroSnippet} />
+        <EventTimeline />
       </div>
     </section>
-  );
-}
-
-function TerminalCard({ code }: { code: string }) {
-  return (
-    <div className="relative">
-      {/* hard offset block behind, manga-panel style */}
-      <div className="pointer-events-none absolute inset-0 translate-x-3 translate-y-3 bg-cyan-500" />
-      <div className="relative border-2 border-fd-foreground bg-fd-background">
-        <div className="flex items-center justify-between border-b-2 border-fd-foreground bg-fd-foreground/5 px-4 py-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="size-3 rounded-full border-2 border-fd-foreground bg-rose-400" />
-            <span className="size-3 rounded-full border-2 border-fd-foreground bg-amber-400" />
-            <span className="size-3 rounded-full border-2 border-fd-foreground bg-emerald-400" />
-          </div>
-          <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-fd-muted-foreground">
-            agent.go
-          </span>
-        </div>
-        <pre className="overflow-x-auto p-5 text-[12.5px] leading-relaxed">
-          <code className="font-mono text-fd-foreground/90">{code}</code>
-        </pre>
-      </div>
-    </div>
   );
 }
 
@@ -300,41 +258,45 @@ function HowItWorks() {
   return (
     <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-6 py-20 lg:py-24">
       <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
-      <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-        <div>
-          <span className="mb-4 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
-            How it works
+      <div className="relative mx-auto max-w-3xl">
+        <span className="mb-4 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
+          How it works
+        </span>
+        <h2 className="mb-5 text-4xl font-black tracking-tight md:text-5xl">
+          Every meaningful runtime action is an{' '}
+          <span className="relative inline-block text-emerald-500">
+            event
+            <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
           </span>
-          <h2 className="mb-5 text-4xl font-black tracking-tight md:text-5xl">
-            Every meaningful runtime action is an{' '}
-            <span className="relative inline-block text-emerald-500">
-              event
-              <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
-            </span>
-            .
-          </h2>
-          <p className="mb-4 text-fd-muted-foreground">
-            Starling treats the event log as the source of truth. The runtime,
-            the inspector, and replay verification all read the same shape.
-          </p>
-          <p className="mb-8 text-fd-muted-foreground">
-            Hash-chained on append; Merkle-rooted on terminal. Replay diffs the
-            re-executed agent against the recording and surfaces the first
-            mismatch as a typed{' '}
-            <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
-              replay.Divergence
-            </code>
-            .
-          </p>
-          <Link
-            href="/docs/events"
-            className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold uppercase tracking-wider transition hover:text-emerald-600 dark:hover:text-emerald-300"
-          >
-            Read the event schema
-            <ArrowRight className="size-4" />
-          </Link>
-        </div>
-        <EventTimeline />
+          .
+        </h2>
+        <p className="mb-4 text-fd-muted-foreground">
+          Starling treats the event log as the source of truth. The runtime,
+          the inspector, and replay verification all read the same shape.
+        </p>
+        <p className="mb-4 text-fd-muted-foreground">
+          Every event is hash-chained on append and Merkle-rooted on terminal —
+          mutate any prior event and{' '}
+          <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
+            eventlog.Validate
+          </code>{' '}
+          fails.
+        </p>
+        <p className="mb-8 text-fd-muted-foreground">
+          Replay diffs the re-executed agent against the recording and surfaces
+          the first mismatch as a typed{' '}
+          <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[12.5px]">
+            replay.Divergence
+          </code>{' '}
+          carrying the seq, kind, expected kind, class, and reason.
+        </p>
+        <Link
+          href="/docs/events"
+          className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold uppercase tracking-wider transition hover:text-emerald-600 dark:hover:text-emerald-300"
+        >
+          Read the event schema
+          <ArrowRight className="size-4" />
+        </Link>
       </div>
     </section>
   );
