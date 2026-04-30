@@ -346,7 +346,7 @@ function HowItWorks() {
   return (
     <section className="relative overflow-hidden border-b border-fd-foreground/15 bg-fd-foreground/[0.02] px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
       <div className={`pointer-events-none absolute inset-0 dot-drift ${dotGrid}`} />
-      <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.2fr_1fr] lg:gap-14">
+      <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-2 lg:items-center lg:gap-16">
         <Reveal>
           <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
             how it works
@@ -366,26 +366,19 @@ function HowItWorks() {
           <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
             Every event is hash-chained on append. The terminal event commits a
             Merkle root over all priors. Mutate any prior event and{' '}
-            <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
+            <code className="whitespace-nowrap border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
               eventlog.Validate
             </code>{' '}
             fails.
           </p>
-          <p className="mb-7 text-sm text-fd-muted-foreground sm:mb-8 sm:text-base">
+          <p className="text-sm text-fd-muted-foreground sm:text-base">
             Replay re-executes the agent against the same wiring. The first event
             that does not byte-match surfaces as a typed{' '}
-            <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
+            <code className="whitespace-nowrap border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
               replay.Divergence
             </code>{' '}
             carrying seq, kind, expected kind, class, and reason.
           </p>
-          <Link
-            href="/docs/events"
-            className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold transition hover:text-emerald-600 dark:hover:text-emerald-300"
-          >
-            read the event schema
-            <ArrowRight className="size-4" />
-          </Link>
         </Reveal>
 
         <Reveal delay={120}>
