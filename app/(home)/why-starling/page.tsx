@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 
 const pageTitle = 'Why Starling';
 const pageDescription =
-  'Eight categories of capability. Hash-chained event log, deterministic replay, Resume, cost budgets, four providers, MCP, Postgres + SQLite, Prometheus + OpenTelemetry, embedded inspector.';
+  'Eight categories of capability. Hash-chained event log, deterministic replay, Resume, cost budgets, five providers, MCP, Postgres + SQLite, Prometheus + OpenTelemetry, embedded inspector.';
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -164,6 +164,10 @@ const sections: Section[] = [
       {
         title: 'Gemini adapter',
         body: 'Native Google Gemini through the Google AI streaming API.',
+      },
+      {
+        title: 'Bedrock adapter',
+        body: 'Amazon Bedrock via native ConverseStream — tool use, reasoning with signatures, redacted thinking, cache-aware usage.',
       },
       {
         title: 'OpenRouter adapter',

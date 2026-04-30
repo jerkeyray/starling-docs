@@ -1,6 +1,6 @@
 ---
 title: Wire providers
-description: Pick a model. OpenAI, Anthropic, Gemini, OpenRouter, plus any OpenAI-compatible endpoint via WithBaseURL.
+description: Pick a model. OpenAI, Anthropic, Gemini, Amazon Bedrock, OpenRouter, plus any OpenAI-compatible endpoint via WithBaseURL.
 ---
 
 `provider.Provider` is the streaming-completion abstraction. Adapters
@@ -41,6 +41,7 @@ have to fake support.
 | `provider/openai`          | `openai.New(opts...)`                | `"v1"`              |
 | `provider/anthropic`       | `anthropic.New(opts...)`             | `"2023-06-01"`      |
 | `provider/gemini`          | `gemini.New(opts...)`                | `"v1beta"`          |
+| `provider/bedrock`         | `bedrock.New(opts...)`               | AWS SDK default     |
 | `provider/openrouter`      | `openrouter.New(opts...)`            | OpenRouter default  |
 
 Each `New` returns `(provider.Provider, error)` — the interface,
@@ -129,6 +130,44 @@ prov, err := gemini.New(
 | `WithAPIVersion(v)`   | URL prefix (default `"v1beta"`).                     |
 | `WithProviderID(id)`  | Override `Info().ID`.                                |
 | `WithHTTPClient(c)`   | Custom HTTP client.                                  |
+
+## Amazon Bedrock
+
+```go
+import (
+    "github.com/aws/aws-sdk-go-v2/config"
+    "github.com/jerkeyray/starling/provider/bedrock"
+)
+
+awsCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"))
+if err != nil {
+    return err
+}
+
+prov, err := bedrock.New(bedrock.WithAWSConfig(awsCfg))
+```
+
+| Option                  | Purpose                                                                       |
+|-------------------------|-------------------------------------------------------------------------------|
+| `WithAWSConfig(cfg)`    | Pre-built `aws.Config`. Standard AWS credential chain applies.                |
+| `WithRegion(region)`    | Region override (e.g. `"us-east-1"`).                                         |
+| `WithBaseEndpoint(url)` | Custom Bedrock runtime endpoint (VPC endpoints, FIPS, gateways).              |
+| `WithHTTPClient(c)`     | Custom `bedrockruntime.HTTPClient` (timeouts, proxies).                       |
+| `WithProviderID(id)`    | Override `Info().ID`.                                                         |
+| `WithAPIVersion(v)`     | Override the recorded API version label.                                      |
+
+The adapter calls native `ConverseStream`, so it accepts every model id
+Bedrock Converse accepts: foundation model ids, inference profiles,
+prompt ARNs, and provisioned-throughput ARNs. Bedrock-specific request
+fields — `additionalModelRequestFields`,
+`additionalModelResponseFieldPaths`, `requestMetadata`,
+`performanceConfig`, `serviceTier`, `promptVariables`, `outputConfig`,
+`guardrailConfig` — are passed through `Request.Params`. Unknown keys
+are rejected, so misspelled fields don't silently no-op.
+
+Capabilities reported by Bedrock: tool use (no `none` tool-choice),
+reasoning content with signatures, redacted thinking, cache-aware usage
+counters, `top_k` via `additionalModelRequestFields`.
 
 ## OpenRouter
 

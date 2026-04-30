@@ -34,7 +34,7 @@ const features: Array<{ icon: typeof Rewind; title: string; body: string }> = [
   {
     icon: CircuitBoard,
     title: 'Provider-neutral',
-    body: 'OpenAI-compatible, Anthropic, Gemini, OpenRouter. Adapters share a conformance suite.',
+    body: 'OpenAI-compatible, Anthropic, Gemini, Amazon Bedrock, OpenRouter. Adapters share a conformance suite.',
   },
   {
     icon: Plug,
@@ -168,7 +168,7 @@ function Hero() {
 }
 
 function Providers() {
-  const adapters = ['OpenAI', 'Anthropic', 'Gemini', 'OpenRouter', 'MCP'];
+  const adapters = ['OpenAI', 'Anthropic', 'Gemini', 'Bedrock', 'OpenRouter', 'MCP'];
   return (
     <section className="border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
