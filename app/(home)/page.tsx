@@ -9,6 +9,10 @@ import {
   Wallet,
 } from 'lucide-react';
 import { author, gitConfig } from '@/lib/shared';
+import { Reveal } from './_components/reveal';
+import { EventLog, type EventTimelineItem } from './_components/event-log';
+import { MerkleViz } from './_components/merkle-viz';
+import { ProvidersMarquee } from './_components/providers-marquee';
 
 const repoURL = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 
@@ -53,12 +57,7 @@ const features: Array<{ icon: typeof Rewind; title: string; body: string }> = [
   },
 ];
 
-const eventTimeline: Array<{
-  seq: number;
-  kind: string;
-  tag: 'lifecycle' | 'turn' | 'tool' | 'terminal';
-  note: string;
-}> = [
+const eventTimeline: EventTimelineItem[] = [
   { seq: 1, kind: 'RunStarted', tag: 'lifecycle', note: 'model · tools · system prompt pinned' },
   { seq: 2, kind: 'TurnStarted', tag: 'turn', note: 'turn 1 · prompt hash committed' },
   { seq: 3, kind: 'AssistantMessageCompleted', tag: 'turn', note: 'tool plan: search · fetch' },
@@ -70,13 +69,6 @@ const eventTimeline: Array<{
   { seq: 9, kind: 'AssistantMessageCompleted', tag: 'turn', note: 'final answer' },
   { seq: 10, kind: 'RunCompleted', tag: 'terminal', note: 'merkle root committed' },
 ];
-
-const tagStyle: Record<typeof eventTimeline[number]['tag'], string> = {
-  lifecycle: 'text-cyan-600 dark:text-cyan-300',
-  turn: 'text-zinc-600 dark:text-zinc-300',
-  tool: 'text-emerald-600 dark:text-emerald-300',
-  terminal: 'text-rose-600 dark:text-rose-300',
-};
 
 // Manga-style hard offset shadow. Two-tone, no blur.
 const hardShadow =
@@ -104,18 +96,18 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex items-center overflow-hidden border-b-2 border-fd-foreground/90 lg:min-h-[calc(100svh-56px)]">
-      <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
-      {/* diagonal accent stripe (manga panel break) */}
-      <div className="pointer-events-none absolute -top-24 right-[-10%] h-72 w-[120%] -rotate-6 bg-cyan-500/10 dark:bg-cyan-500/[0.08]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-fd-foreground/90" />
+    <section className="relative flex items-center overflow-hidden border-b border-fd-foreground/15 lg:min-h-[calc(100svh-56px)]">
+      <div className={`pointer-events-none absolute inset-0 dot-drift ${dotGrid}`} />
+      {/* subtle accent stripes */}
+      <div className="stripe" aria-hidden />
+      <div className="stripe stripe-2" aria-hidden />
 
       <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-20">
         <div>
           <span
             className={`mb-5 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold tracking-wide text-fd-foreground sm:mb-7 sm:text-xs ${hardShadowSm}`}
           >
-            <GithubMark className="size-3.5" />
+            <span className="pulse-dot" aria-hidden />
             <span>pre-release · go 1.26+</span>
           </span>
           <h1 className="mb-5 text-balance text-4xl font-black leading-[1.05] tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
@@ -126,18 +118,14 @@ function Hero() {
             for{' '}
             <span className="relative inline-block text-cyan-500">
               go
-              <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-cyan-500" />
+              <span className="hl-bar absolute -bottom-1 left-0 right-0 h-[5px] bg-cyan-500" />
             </span>
             .
           </h1>
           <p className="mb-7 max-w-xl text-balance text-base leading-relaxed text-fd-muted-foreground sm:mb-9 sm:text-lg">
             Every run is replayable, auditable, and cost-enforceable. When an
             agent fails in production, replay the log and see the exact step
-            today&apos;s behavior{' '}
-            <span className="bg-rose-500/15 px-1.5 py-0.5 font-bold text-rose-600 dark:text-rose-300">
-              diverges
-            </span>
-            .
+            today&apos;s behavior <span className="diverge">diverges</span>.
           </p>
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
@@ -161,33 +149,29 @@ function Hero() {
             </Link>
           </div>
         </div>
-        <EventTimeline />
+        <EventLog timeline={eventTimeline} />
       </div>
     </section>
   );
 }
 
 function Providers() {
-  const adapters = ['OpenAI', 'Anthropic', 'Gemini', 'Bedrock', 'OpenRouter', 'MCP'];
   return (
-    <section className="border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-8 sm:px-6 sm:py-10">
+    <section className="border-b border-fd-foreground/15 bg-fd-foreground/[0.02] px-5 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-5xl">
-        <p className="mb-4 text-center text-[11px] font-bold tracking-wide text-fd-muted-foreground sm:mb-5 sm:text-xs">
-          in-tree adapters
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-          {adapters.map((p) => (
-            <span
-              key={p}
-              className={`inline-flex items-center border-2 border-fd-foreground bg-fd-background px-2.5 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wider transition hover:bg-fd-foreground hover:text-fd-background sm:px-3 sm:py-1 sm:text-[12px] ${hardShadowSm}`}
-            >
-              {p}
-            </span>
-          ))}
-        </div>
-        <p className="mx-auto mt-5 max-w-2xl text-center text-[11px] leading-relaxed text-fd-muted-foreground/80 sm:mt-6">
-          OpenAI-compatible endpoints (Groq, Together, Ollama, vLLM, Azure, …)
-          plug in via <code className="font-mono">openai.WithBaseURL</code>.
+        <Reveal>
+          <p className="mb-4 text-center font-mono text-[11px] font-extrabold uppercase tracking-[0.08em] text-fd-muted-foreground sm:mb-5 sm:text-xs">
+            in-tree adapters
+          </p>
+        </Reveal>
+        <ProvidersMarquee />
+        <p className="mx-auto mt-5 max-w-2xl text-center text-[12.5px] leading-relaxed text-fd-muted-foreground/80 sm:mt-6">
+          OpenAI-compatible endpoints (Groq, Together, Ollama, vLLM, LM Studio,
+          Azure OpenAI, …) plug in via{' '}
+          <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono">
+            openai.WithBaseURL
+          </code>
+          .
         </p>
       </div>
     </section>
@@ -196,10 +180,10 @@ function Providers() {
 
 function FeatureGrid() {
   return (
-    <section className="border-b-2 border-fd-foreground/90 px-5 py-10 sm:px-6 sm:py-14 lg:py-16">
+    <section className="border-b border-fd-foreground/15 px-5 py-10 sm:px-6 sm:py-14 lg:py-16">
       <div className="mx-auto max-w-6xl">
         <div className="mb-7 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
-          <div className="max-w-2xl">
+          <Reveal className="max-w-2xl">
             <span className="mb-3 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:text-xs">
               what you get
             </span>
@@ -210,29 +194,31 @@ function FeatureGrid() {
               Production-shaped from the start. Nothing about the design
               optimizes for demos.
             </p>
-          </div>
+          </Reveal>
           <Link
             href="/why-starling"
             className={`shrink-0 self-start inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
           >
-            see all 8 categories
+            see all features
             <ArrowRight className="size-4" />
           </Link>
         </div>
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {features.map(({ icon: Icon, title, body }) => (
-            <div
-              key={title}
-              className={`group relative border-2 border-fd-foreground bg-fd-background p-4 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
-            >
-              <div className="mb-2 inline-flex size-8 items-center justify-center border-2 border-fd-foreground bg-cyan-500/15">
-                <Icon className="size-4 text-cyan-600 dark:text-cyan-300" strokeWidth={2.25} />
+          {features.map(({ icon: Icon, title, body }, i) => (
+            <Reveal key={title} delay={(i % 3) * 60}>
+              <div
+                className={`group relative overflow-hidden border-2 border-fd-foreground bg-fd-background p-4 transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
+              >
+                <span className="feat-sweep" aria-hidden />
+                <div className="mb-2 inline-flex size-8 items-center justify-center border-2 border-fd-foreground bg-cyan-500/15">
+                  <Icon className="size-4 text-cyan-600 dark:text-cyan-300" strokeWidth={2.25} />
+                </div>
+                <h3 className="mb-1.5 text-sm font-bold">{title}</h3>
+                <p className="text-[13px] leading-relaxed text-fd-muted-foreground">
+                  {body}
+                </p>
               </div>
-              <h3 className="mb-1.5 text-sm font-bold">{title}</h3>
-              <p className="text-[13px] leading-relaxed text-fd-muted-foreground">
-                {body}
-              </p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
@@ -286,9 +272,9 @@ function RunFlow() {
   ];
 
   return (
-    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
+    <section className="relative overflow-hidden border-b border-fd-foreground/15 px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10 max-w-2xl sm:mb-14">
+        <Reveal className="mb-10 max-w-2xl sm:mb-14">
           <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
             how a run flows
           </span>
@@ -301,40 +287,53 @@ function RunFlow() {
             from the goal you pass in to the merkle-rooted terminal event,
             every meaningful state change is recorded in order.
           </p>
-        </div>
+        </Reveal>
 
         <ol className="grid gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-5">
-          {steps.map((s) => {
+          {steps.map((s, i) => {
             const accentBar =
               s.accent === 'cyan' ? 'bg-cyan-500' : 'bg-emerald-500';
             const accentText =
               s.accent === 'cyan' ? 'text-cyan-500' : 'text-emerald-500';
+            const isLast = i === steps.length - 1;
             return (
-              <li
-                key={s.n}
-                className={`relative flex flex-col gap-3 border-2 border-fd-foreground bg-fd-background p-5 ${hardShadowSm}`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className={`font-mono text-2xl font-black ${accentText}`}>
-                    {s.n}
-                  </span>
-                  <span className={`h-[3px] w-8 ${accentBar}`} aria-hidden />
-                </div>
-                <h3 className="text-base font-bold leading-tight">{s.title}</h3>
-                <p className="text-sm leading-relaxed text-fd-muted-foreground">
-                  {s.body}
-                </p>
-                <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-                  {s.eventHints.map((h) => (
-                    <span
-                      key={h}
-                      className="inline-block border border-fd-foreground/30 bg-fd-foreground/[0.04] px-1.5 py-0.5 font-mono text-[10px] font-medium text-fd-muted-foreground"
-                    >
-                      {h}
+              <Reveal key={s.n} as="li" delay={i * 80}>
+                <div
+                  className={`relative flex h-full flex-col gap-3 overflow-hidden border-2 border-fd-foreground bg-fd-background p-5 ${hardShadowSm}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`font-mono text-2xl font-black ${accentText}`}>
+                      {s.n}
                     </span>
-                  ))}
+                    <span className={`h-[3px] w-8 ${accentBar}`} aria-hidden />
+                  </div>
+                  <h3 className="text-base font-bold leading-tight">{s.title}</h3>
+                  <p className="text-sm leading-relaxed text-fd-muted-foreground">
+                    {s.body}
+                  </p>
+                  <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
+                    {s.eventHints.map((h) => (
+                      <span
+                        key={h}
+                        className="inline-block border border-fd-foreground/30 bg-fd-foreground/[0.04] px-1.5 py-0.5 font-mono text-[10px] font-medium text-fd-muted-foreground"
+                      >
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                  {!isLast && (
+                    <>
+                      <span className="phase-connector hidden lg:block" aria-hidden />
+                      <span
+                        className={`phase-ping hidden lg:block ${
+                          s.accent === 'emerald' ? 'emerald' : ''
+                        }`}
+                        aria-hidden
+                      />
+                    </>
+                  )}
                 </div>
-              </li>
+              </Reveal>
             );
           })}
         </ol>
@@ -345,118 +344,93 @@ function RunFlow() {
 
 function HowItWorks() {
   return (
-    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-foreground/[0.02] px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
-      <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
-      <div className="relative mx-auto max-w-3xl">
-        <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
-          how it works
-        </span>
-        <h2 className="mb-5 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-          every meaningful runtime action is an{' '}
-          <span className="relative inline-block text-emerald-500">
-            event
-            <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
+    <section className="relative overflow-hidden border-b border-fd-foreground/15 bg-fd-foreground/[0.02] px-5 py-14 sm:px-6 sm:py-20 lg:py-24">
+      <div className={`pointer-events-none absolute inset-0 dot-drift ${dotGrid}`} />
+      <div className="relative mx-auto grid max-w-6xl gap-10 lg:grid-cols-[1.2fr_1fr] lg:gap-14">
+        <Reveal>
+          <span className="mb-3 inline-block border-2 border-fd-foreground bg-emerald-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:mb-4 sm:text-xs">
+            how it works
           </span>
-          .
-        </h2>
-        <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
-          Starling treats the event log as the source of truth. The runtime,
-          the inspector, and replay verification all read the same shape.
-        </p>
-        <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
-          Every event is hash-chained on append. The terminal event commits a
-          Merkle root over all priors. Mutate any prior event and{' '}
-          <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
-            eventlog.Validate
-          </code>{' '}
-          fails.
-        </p>
-        <p className="mb-7 text-sm text-fd-muted-foreground sm:mb-8 sm:text-base">
-          Replay re-executes the agent against the same wiring. The first event
-          that does not byte-match surfaces as a typed{' '}
-          <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
-            replay.Divergence
-          </code>{' '}
-          carrying seq, kind, expected kind, class, and reason.
-        </p>
-        <Link
-          href="/docs/events"
-          className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold transition hover:text-emerald-600 dark:hover:text-emerald-300"
-        >
-          read the event schema
-          <ArrowRight className="size-4" />
-        </Link>
+          <h2 className="mb-5 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+            every meaningful runtime action is an{' '}
+            <span className="relative inline-block text-emerald-500">
+              event
+              <span className="hl-bar absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
+            </span>
+            .
+          </h2>
+          <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
+            Starling treats the event log as the source of truth. The runtime,
+            the inspector, and replay verification all read the same shape.
+          </p>
+          <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
+            Every event is hash-chained on append. The terminal event commits a
+            Merkle root over all priors. Mutate any prior event and{' '}
+            <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
+              eventlog.Validate
+            </code>{' '}
+            fails.
+          </p>
+          <p className="mb-7 text-sm text-fd-muted-foreground sm:mb-8 sm:text-base">
+            Replay re-executes the agent against the same wiring. The first event
+            that does not byte-match surfaces as a typed{' '}
+            <code className="break-all border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
+              replay.Divergence
+            </code>{' '}
+            carrying seq, kind, expected kind, class, and reason.
+          </p>
+          <Link
+            href="/docs/events"
+            className="inline-flex items-center gap-2 border-b-2 border-fd-foreground pb-0.5 text-sm font-bold transition hover:text-emerald-600 dark:hover:text-emerald-300"
+          >
+            read the event schema
+            <ArrowRight className="size-4" />
+          </Link>
+        </Reveal>
+
+        <Reveal delay={120}>
+          <MerkleViz />
+        </Reveal>
       </div>
     </section>
   );
 }
 
-function EventTimeline() {
-  return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 translate-x-2 translate-y-2 bg-emerald-500 sm:translate-x-3 sm:translate-y-3" />
-      <div className="relative border-2 border-fd-foreground bg-fd-background">
-        <div className="flex items-center justify-between gap-2 border-b-2 border-fd-foreground bg-fd-foreground/5 px-3 py-2 sm:px-4 sm:py-2.5">
-          <span className="truncate font-mono text-[10px] font-bold tracking-wide text-fd-muted-foreground sm:text-[11px]">
-            run · 01hz8…xkj3 · 10 events
-          </span>
-          <span className="shrink-0 border-2 border-fd-foreground bg-emerald-500 px-1.5 py-0.5 font-mono text-[9px] font-black tracking-wide text-white sm:px-2 sm:text-[10px]">
-            ✓ validated
-          </span>
-        </div>
-        <ol className="divide-y-2 divide-fd-foreground/10 font-mono text-[11px] sm:text-[12.5px]">
-          {eventTimeline.map((ev) => (
-            <li
-              key={ev.seq}
-              className="grid grid-cols-[2.25rem_1fr] items-center gap-2 px-3 py-2 sm:grid-cols-[2.5rem_1fr] sm:gap-3 sm:px-4 sm:py-2.5"
-            >
-              <span className="font-bold text-fd-muted-foreground">
-                #{ev.seq.toString().padStart(2, '0')}
-              </span>
-              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 sm:gap-x-3">
-                <span className={`break-all font-bold ${tagStyle[ev.tag]}`}>{ev.kind}</span>
-                <span className="break-words text-fd-muted-foreground">{ev.note}</span>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </div>
-  );
-}
-
 function OpenSource() {
   return (
-    <section className="relative overflow-hidden border-b-2 border-fd-foreground/90 bg-fd-background px-5 py-14 sm:px-6 sm:py-20">
-      <div className={`pointer-events-none absolute inset-0 ${dotGrid}`} />
-      <div className="pointer-events-none absolute -bottom-16 left-[-10%] h-56 w-[120%] -rotate-3 bg-emerald-500/10" />
+    <section className="relative overflow-hidden border-b border-fd-foreground/15 bg-fd-background px-5 py-14 sm:px-6 sm:py-20">
+      <div className={`pointer-events-none absolute inset-0 dot-drift ${dotGrid}`} />
+      <div className="stripe stripe-2" aria-hidden />
       <div className="relative mx-auto max-w-3xl text-center">
-        <span
-          className={`mb-4 inline-block border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold tracking-wide text-fd-foreground sm:mb-5 sm:text-xs ${hardShadowSm}`}
-        >
-          open source
-        </span>
-        <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-          contributions{' '}
-          <span className="relative inline-block text-emerald-500">
-            welcome
-            <span className="absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
-          </span>
-          .
-        </h2>
-        <p className="mx-auto mb-7 max-w-xl text-sm leading-relaxed text-fd-muted-foreground sm:mb-8 sm:text-base">
-          issues, pull requests, and design discussions are genuinely
-          appreciated. star the repo to follow along.
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-          <Link
-            href={repoURL}
-            className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
+        <Reveal>
+          <span
+            className={`mb-4 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold tracking-wide text-fd-foreground sm:mb-5 sm:text-xs ${hardShadowSm}`}
           >
-            <GithubMark className="size-4" />
-            star on github
-          </Link>
-        </div>
+            <span className="pulse-dot" aria-hidden />
+            <span>open source</span>
+          </span>
+          <h2 className="mb-4 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
+            contributions{' '}
+            <span className="relative inline-block text-emerald-500">
+              welcome
+              <span className="hl-bar absolute -bottom-1 left-0 right-0 h-[5px] bg-emerald-500" />
+            </span>
+            .
+          </h2>
+          <p className="mx-auto mb-7 max-w-xl text-sm leading-relaxed text-fd-muted-foreground sm:mb-8 sm:text-base">
+            issues, pull requests, and design discussions are genuinely
+            appreciated. star the repo to follow along.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+            <Link
+              href={repoURL}
+              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
+            >
+              <GithubMark className="size-4" />
+              star on github
+            </Link>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
@@ -464,7 +438,7 @@ function OpenSource() {
 
 function Footer() {
   return (
-    <footer className="border-t-2 border-fd-foreground/90 bg-fd-background px-5 py-8 sm:px-6 sm:py-10">
+    <footer className="border-t border-fd-foreground/15 bg-fd-background px-5 py-8 sm:px-6 sm:py-10">
       <div className="mx-auto flex max-w-6xl flex-col gap-5 text-xs text-fd-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>© {new Date().getFullYear()} starling contributors.</span>
