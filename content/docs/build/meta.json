@@ -1,5 +1,6 @@
 {
   "title": "Build",
+  "icon": "Hammer",
   "pages": ["agent", "tools", "providers", "persistence", "budgets"],
   "defaultOpen": true
 }
