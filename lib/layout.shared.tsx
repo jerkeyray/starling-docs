@@ -11,16 +11,41 @@ function GithubMark({ className = 'size-4' }: { className?: string }) {
   );
 }
 
+function StarlingLogo({ className = 'size-5' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#22d3ee"
+      strokeWidth="3"
+      strokeLinecap="square"
+      strokeLinejoin="miter"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <polyline points="3 3 3 8 8 8" />
+    </svg>
+  );
+}
+
+const navTitle = (
+  <span className="inline-flex items-center gap-2 font-semibold">
+    <StarlingLogo className="size-5" />
+    starling
+  </span>
+);
+
 export function baseOptions(): BaseLayoutProps {
   return {
-    nav: { title: 'starling', url: '/' },
+    nav: { title: navTitle, url: '/' },
     githubUrl: repoURL,
   };
 }
 
 export function homeOptions(): BaseLayoutProps {
   return {
-    nav: { title: 'starling', url: '/' },
+    nav: { title: navTitle, url: '/' },
     searchToggle: { enabled: false },
     themeSwitch: { enabled: false },
     links: [
