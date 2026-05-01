@@ -121,6 +121,10 @@ payload externally: the Merkle root is the natural signing target.
 
 ### Inspector auth and TLS
 
+For the user-facing tour (UI, keyboard shortcuts, diff page,
+theme), see [Inspector](/docs/inspector). This section covers the
+deployment posture only.
+
 Bearer auth via `inspect.WithAuth(inspect.BearerAuth(token))` or the
 `STARLING_INSPECT_TOKEN` env var. CSRF protection is always on for
 state-changing routes (replay POSTs); the inspector plants an

@@ -1,0 +1,83 @@
+---
+title: Inspector
+description: Local web UI for browsing, diffing, and replaying recorded runs.
+---
+
+`starling-inspect` opens a SQLite event log read-only and serves a
+self-contained UI on loopback. No CDN, no JS build, never writes
+back to the log.
+
+```bash title="terminal"
+go run github.com/jerkeyray/starling/cmd/starling-inspect runs.db
+```
+
+`--help` lists every flag. For non-local access, see
+[Operations → Inspector auth and TLS](/docs/operations#inspector-auth-and-tls).
+
+## Runs list
+
+<img
+  src="/inspector/runs.webp"
+  alt="Inspector runs dashboard"
+  loading="lazy"
+  style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border, #262626)', margin: '0.5rem 0 1rem' }}
+/>
+
+Per-run totals up top, status tabs and preset chips for narrowing,
+substring search on run id (`/` focuses).
+
+## Run detail
+
+<img
+  src="/inspector/run.webp"
+  alt="Inspector run detail with timeline and JSON pane"
+  loading="lazy"
+  style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border, #262626)', margin: '0.5rem 0 1rem' }}
+/>
+
+Timeline on the left (color-coded by event family, inline
+cost/token chips). Detail pane on the right with a sticky meta
+header — hash, prev hash, call id are click-to-copy — and a
+syntax-highlighted JSON body that wraps long strings by default.
+Press `?` in the timeline header for the keyboard shortcuts.
+
+## Diff
+
+<img
+  src="/inspector/diff.webp"
+  alt="Inspector diff page comparing two runs side by side"
+  loading="lazy"
+  style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border, #262626)', margin: '0.5rem 0 1rem' }}
+/>
+
+`/diff` aligns two runs by sequence. Pick A and B from the
+dropdowns, hit Compare. Diverging rows get a red left rail, a
+summary strip up top counts matches/diffs and points at the first
+divergence. URL: `/diff?a={runIDA}&b={runIDB}`.
+
+## Replaying a run
+
+A **Replay** button shows up on the run page when the inspector is
+built into a dual-mode binary that wires
+`starling.InspectCommand(factory)`. It opens a side-by-side
+recorded-vs-reproduced timeline; divergence surfaces as a toast
+plus a click-through dialog. The source log is never written to.
+
+```go title="cmd/myagent/main.go"
+if len(os.Args) > 1 && os.Args[1] == "inspect" {
+    return starling.InspectCommand(myFactory).Run(os.Args[2:])
+}
+```
+
+<Cards>
+  <Card
+    title="Operations"
+    href="/docs/operations"
+    description="Deploy the inspector behind TLS, bearer auth, retention."
+  />
+  <Card
+    title="Replay tests"
+    href="/docs/replay-tests"
+    description="Drive the divergence machinery from Go tests."
+  />
+</Cards>
