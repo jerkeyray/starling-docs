@@ -177,9 +177,16 @@ httpFetch := builtin.Fetch()                // HTTP GET; 15s timeout, 1 MiB cap
 readFile, err := builtin.ReadFile("./data") // path-escape rejected
 ```
 
-`Fetch()` takes no options. `ReadFile(baseDir)` rejects `..`, absolute
-paths, and symlinks that escape the base directory. Both are good
-templates for your own tools.
+`Fetch()` takes no options. It only allows public `http` and `https`
+URLs, caps responses at 1 MiB, times out after 15 seconds, and rejects
+localhost, private, link-local, multicast, unspecified addresses, and
+redirects to those addresses. It is still a small reference tool, not a
+browser or crawler; wrap or replace it when you need allowlists,
+authentication, custom headers, or richer HTTP policy.
+
+`ReadFile(baseDir)` rejects `..`, absolute paths, and symlinks that
+escape the base directory. Both tools are good templates for your own
+tools.
 
 ## When to skip tool.Typed
 

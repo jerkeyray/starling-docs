@@ -22,6 +22,26 @@ type RunLister interface {
     ListRuns(ctx context.Context) ([]RunSummary, error)
 }
 
+type RunPageLister interface {
+    ListRunsPage(ctx context.Context, opts RunPageOptions) (RunPage, error)
+}
+
+type RunPageOptions struct {
+    Limit            int
+    Offset           int
+    Status           event.Kind
+    Query            string
+    StartedAfter     time.Time
+    RequireToolCalls bool
+}
+
+type RunPage struct {
+    Runs          []RunSummary
+    TotalMatching int
+    Limit         int
+    Offset        int
+}
+
 type RunSummary struct {
     RunID        string
     StartedAt    time.Time
@@ -30,7 +50,10 @@ type RunSummary struct {
 }
 ```
 
-All three built-in backends satisfy `RunLister` (the inspector uses it).
+All three built-in backends satisfy `RunLister` and `RunPageLister`.
+The inspector uses `RunPageLister` when available, and falls back to
+`RunLister` for custom backends that only implement the older listing
+interface.
 
 ## Picking a backend
 
@@ -203,6 +226,24 @@ for ev := range ch {
 `Stream` delivers historical events first, then live events. The
 channel closes on context cancel, log close, or buffer overflow
 (internal buffer is 256 events).
+
+## Paged listings
+
+Use `ListRunsPage` for UI or API surfaces that browse many runs:
+
+```go
+page, err := log.ListRunsPage(ctx, eventlog.RunPageOptions{
+    Limit:  50,
+    Offset: 0,
+    Status: event.KindRunCompleted,
+    Query:  "support-ticket",
+})
+```
+
+`Limit <= 0` uses the backend default. SQLite and Postgres apply
+filters, ordering, and pagination in SQL before materializing run
+summaries, so large logs do not need to load every run just to render
+the first page. No schema migration is required.
 
 ## Sentinel errors
 

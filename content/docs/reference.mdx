@@ -117,8 +117,9 @@ type EventLog interface {
 }
 ```
 
-`RunLister` adds `ListRuns(ctx) ([]RunSummary, error)`. All three
-built-in backends implement both.
+`RunLister` adds `ListRuns(ctx) ([]RunSummary, error)`. `RunPageLister`
+adds `ListRunsPage(ctx, opts) (RunPage, error)` for filtered,
+server-side pagination. All three built-in backends implement both.
 
 ### Backends
 
@@ -228,8 +229,10 @@ never re-contacts the server. Full options table on the
 
 ### Built-in tools
 
-`tool/builtin/` ships `Fetch()` (15s timeout, 1 MiB cap) and
-`ReadFile(baseDir)` (path-escape rejection). Use directly or as templates.
+`tool/builtin/` ships `Fetch()` (public `http`/`https` only, 15s
+timeout, 1 MiB cap, local/private-address and unsafe redirect
+rejection) and `ReadFile(baseDir)` (path-escape rejection). Use
+directly or as templates.
 
 ## provider
 

@@ -25,7 +25,10 @@ go run github.com/jerkeyray/starling/cmd/starling-inspect runs.db
 />
 
 Per-run totals up top, status tabs and preset chips for narrowing,
-substring search on run id (`/` focuses).
+substring search on run id (`/` focuses). The runs list is paged on
+the server: 50 rows by default, up to 200 with `?per_page=200`.
+Filters and search terms are preserved when paging. Totals reflect the
+currently visible page, while the pager shows the full matching count.
 
 ## Run detail
 
@@ -51,10 +54,11 @@ Press `?` in the timeline header for the keyboard shortcuts.
   style={{ width: '100%', borderRadius: '10px', border: '1px solid var(--color-border, #262626)', margin: '0.5rem 0 1rem' }}
 />
 
-`/diff` aligns two runs by sequence. Pick A and B from the
-dropdowns, hit Compare. Diverging rows get a red left rail, a
-summary strip up top counts matches/diffs and points at the first
-divergence. URL: `/diff?a={runIDA}&b={runIDB}`.
+`/diff` aligns two runs by sequence. Pick A and B from the latest 100
+runs in the dropdowns, hit Compare. Older runs can still be compared by
+opening `/diff?a={runIDA}&b={runIDB}` directly. Diverging rows get a red
+left rail, a summary strip up top counts matches/diffs and points at
+the first divergence.
 
 ## Replaying a run
 
