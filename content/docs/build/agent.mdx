@@ -108,10 +108,46 @@ type RunResult struct {
     Duration      time.Duration
     TerminalKind  event.Kind  // RunCompleted | RunFailed | RunCancelled
     MerkleRoot    []byte
+    CacheStats    CacheStats
+}
+
+type CacheStats struct {
+    Hits         int    // turns whose CacheReadTokens > 0
+    Misses       int    // turns that consumed input but read 0 cached prefix
+    ReadTokens   int64  // sum of CacheReadTokens across turns
+    CreateTokens int64  // sum of CacheCreateTokens across turns
 }
 ```
 
 All values recoverable from the log; `RunResult` is a convenience.
+`CacheStats` aggregates prompt-cache activity from per-turn
+`AssistantMessageCompleted` events. Anthropic and other providers
+that surface cache token counts populate non-zero values; for
+others the field is the zero value.
+
+## Streaming with `RunStream`
+
+For chat-style frontends that want typed events instead of raw
+log entries, `Agent.RunStream` projects the lower-level `Stream` onto
+four typed variants:
+
+```go
+runID, ch, err := a.RunStream(ctx, "Look up customer 42 ...")
+if err != nil { return err }
+
+for ev := range ch {
+    switch e := ev.(type) {
+    case starling.TextDelta:        // emitted on AssistantMessageCompleted
+    case starling.ToolCallStarted:  // ToolCallScheduled
+    case starling.ToolCallEnded:    // ToolCallCompleted/Failed; e.Err set on failure
+    case starling.Done:             // always last; e.TerminalKind, e.FinalText, e.Err
+    }
+}
+```
+
+The channel always closes after a single `Done`. Use `Stream`
+directly if you need every event with the full envelope (sequence
+numbers, every Kind).
 
 ## Resume after crash
 

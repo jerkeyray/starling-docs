@@ -166,6 +166,52 @@ Concurrency cap is `step.DefaultMaxParallelTools = 8`. Replay
 re-executes tools in the recorded completion order so byte comparison
 is deterministic.
 
+## Middleware: `tool.Wrap`
+
+Compose cross-cutting behavior around `Execute` without
+re-implementing the `Tool` interface. `Name`, `Description`, and
+`Schema` pass through unchanged so the model sees the same
+contract; only the runtime call path is layered.
+
+```go
+type Middleware func(
+    inner func(context.Context, json.RawMessage) (json.RawMessage, error),
+) func(context.Context, json.RawMessage) (json.RawMessage, error)
+
+func tool.Wrap(t Tool, mw ...Middleware) Tool
+```
+
+Composition matches `net/http.Handler`: the **last middleware
+passed runs first**. The first one wraps the inner-most call,
+closest to the original `Execute`.
+
+```go
+withTiming := func(inner ...) ... {
+    return func(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
+        start := time.Now()
+        out, err := inner(ctx, in)
+        slog.Info("tool", "dur", time.Since(start), "err", err)
+        return out, err
+    }
+}
+
+withAuth := func(inner ...) ... {
+    return func(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
+        if !authorized(ctx) {
+            return nil, errors.New("unauthorized")  // short-circuits inner
+        }
+        return inner(ctx, in)
+    }
+}
+
+audited := tool.Wrap(myTool, withTiming, withAuth)
+// withAuth runs first; if it short-circuits, withTiming and myTool.Execute are skipped.
+```
+
+Common uses: logging, timing, span injection, request
+authentication, input validation that runs before the tool, output
+redaction.
+
 ## Built-in tools
 
 `tool/builtin/` ships two reference implementations:

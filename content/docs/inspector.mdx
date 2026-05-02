@@ -74,6 +74,28 @@ if len(os.Args) > 1 && os.Args[1] == "inspect" {
 }
 ```
 
+## Embedding the inspector
+
+If you want to mount the inspector in a larger HTTP server, build it
+directly:
+
+```go
+import "github.com/jerkeyray/starling/inspect"
+
+srv, err := inspect.New(log,
+    inspect.WithAuth(inspect.BearerAuth(os.Getenv("STARLING_INSPECT_TOKEN"))),
+    inspect.WithReplayer(myFactory),         // optional: enables Replay button
+    inspect.WithDBPath("/var/lib/runs.db"),  // optional: shows the DB basename in the topbar context chip
+)
+if err != nil { return err }
+http.Handle("/runs/", http.StripPrefix("/runs", srv))
+```
+
+`WithDBPath` populates a small chip in the inspector topbar with
+the database's basename (full path on hover) so operators can see
+which log the UI is pointing at when several inspectors run side
+by side. The standalone CLI passes it automatically.
+
 <Cards>
   <Card
     title="Operations"

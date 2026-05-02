@@ -180,6 +180,8 @@ a `run_id`. The unit of deletion is the whole run.
 
 - Delete whole runs (`DELETE ... WHERE run_id IN (...)`).
 - Archive runs to NDJSON via `starling export`, then delete.
+- Use `starling prune` for dry-run-first rolling retention on SQLite
+  logs.
 - Partition by time (Postgres `DROP PARTITION`, `pg_partman` or a cron
   job rolling monthly partitions).
 - Filter the inspector view by `RunSummary.StartedAt` instead of
@@ -187,26 +189,25 @@ a `run_id`. The unit of deletion is the whole run.
 
 ### Rolling-window deletion
 
-```sql
--- Postgres
-DELETE FROM eventlog_events
-WHERE run_id IN (
-    SELECT run_id FROM eventlog_events
-    GROUP BY run_id
-    HAVING MAX(ts) < EXTRACT(EPOCH FROM NOW() - INTERVAL '90 days') * 1e9
-);
-VACUUM (ANALYZE) eventlog_events;
+```bash
+starling prune --older-than 2160h /var/lib/starling/log.db
+starling prune --older-than 2160h --confirm /var/lib/starling/log.db
 ```
 
-For SQLite, swap `EXTRACT(EPOCH …)` for `strftime('%s', 'now', '-90 days') * 1e9`,
-then `VACUUM` during low traffic.
+`prune` deletes whole terminal runs only by default. Use `--status` to
+target one status and `--limit` to break large cleanup jobs into
+smaller batches. Run `VACUUM` during low traffic if you need SQLite to
+return freed pages to the filesystem.
+
+For Postgres, call `eventlog.RunPruner` in your maintenance job or use
+time partitions when you need instant archival drops.
 
 ### PII deletion (right-to-erasure)
 
 Maintain an external `user_id → []run_id` index: Starling does not
-keep one. On request, `DELETE FROM eventlog_events WHERE run_id IN
-(...)` and remove any archived NDJSON. Don't try to selectively redact
-within a run; the chain depends on every event.
+keep one. On request, prune those whole runs and remove any archived
+NDJSON. Don't try to selectively redact within a run; the chain depends
+on every event.
 
 ## Metrics
 

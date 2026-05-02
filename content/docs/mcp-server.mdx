@@ -1,0 +1,145 @@
+---
+title: MCP server (inbound)
+description: Read-only MCP server that exposes a recorded Starling event log to AI assistants over stdio. Claude Desktop, Cursor, Claude Code.
+icon: Server
+---
+
+<Callout type="info">
+This page is the inbound MCP **server** - AI assistants querying
+your event log. For the outbound **client** that lets agents call
+external MCP servers as tools, see [MCP tools](/docs/mcp-tools).
+</Callout>
+
+`starling-mcp` exposes a recorded event log to AI assistants over the
+Model Context Protocol. Once installed, your AI client (Claude
+Desktop, Cursor, Claude Code) can answer natural-language questions
+about your agent's runs without you copy-pasting JSON.
+
+The server is read-only by construction: the SQLite handle is opened
+with `eventlog.WithReadOnly`, and only read tools are registered. It
+runs as a stdio subprocess of the AI client; nothing opens a network
+port.
+
+## Install
+
+```bash
+go install github.com/jerkeyray/starling/cmd/starling-mcp@latest
+```
+
+Or build from source:
+
+```bash
+go build -o ~/bin/starling-mcp ./cmd/starling-mcp
+```
+
+The `starling` CLI also bundles it as a subcommand:
+`starling mcp <db>` is identical.
+
+## Wire into an MCP client
+
+**Claude Desktop** - `~/Library/Application Support/Claude/claude_desktop_config.json`
+on macOS:
+
+```json
+{
+  "mcpServers": {
+    "starling": {
+      "command": "starling-mcp",
+      "args": ["/Users/me/.hearsay/saves/playbot.db"]
+    }
+  }
+}
+```
+
+**Cursor** - `~/.cursor/mcp.json` (same shape).
+
+**Claude Code** - add via `claude mcp add starling starling-mcp /path/to/runs.db`.
+
+Restart the client. The server starts when the client first
+connects, exits when the client disconnects, and re-reads the DB
+file on every tool call so new events are visible immediately.
+
+## Tools
+
+Seven read-only tools. All return JSON; arguments are typed.
+
+| Tool | What it does |
+| --- | --- |
+| `list_runs` | Enumerate recorded runs newest-first. Filters: `status`, `query` (substring match on run id + status), `since` (RFC3339), `with_tool_calls`. Page with `limit` (default 50, max 200) + `offset`. |
+| `get_run` | Return the run summary plus every event with hashes and decoded payloads. Caps at 1000 events; use `offset` to page when truncated. |
+| `get_event` | One event by `(run_id, seq)`, with hash, prev_hash, kind, decoded payload. |
+| `summarize_run` | Turn count, tool-call count, in/out tokens, USD cost, duration, terminal kind, final assistant text. |
+| `validate_run` | Verify the BLAKE3 hash chain. Returns `{ok: true}` on a clean chain, otherwise `{ok: false, reason: "..."}`. |
+| `diff_runs` | Align two runs by sequence and classify each row as `match`, `diff`, `only-a`, or `only-b`. Includes the first-divergence sequence number. |
+| `search_runs` | Naive substring/kind scan across runs. Requires at least one of `query` or `kind`; cap with `limit` (default 50, max 500). Returns `{run_id, seq, kind, summary}` per hit plus `examined_events` so you can see how much it walked. |
+
+## Sample interactions
+
+> **You:** What runs are in the database?
+>
+> **Claude:** *(calls `list_runs`)*
+> Five runs, newest first. Three completed, one failed
+> (`max_turns` at 14:32:07), one cancelled. Total cost $0.0089.
+
+> **You:** Summarize the failed one.
+>
+> **Claude:** *(calls `summarize_run` with the failed run's id)*
+> Run `01HZ...` failed after 5 turns and 2 tool calls,
+> $0.0021, 1247 input / 38 output tokens, ran for 8.4 seconds.
+> The final assistant text was empty - terminal kind is RunFailed
+> with error_type `max_turns`.
+
+> **You:** Was there a tool that errored?
+>
+> **Claude:** *(calls `search_runs` with `kind=ToolCallFailed`)*
+> Two `ToolCallFailed` events. Both in run `01HZ...`, both for the
+> `fetch` tool with `error_type=tool` and message
+> `upstream 503: service unavailable`. Same call id `c4` retried
+> twice before final failure.
+
+> **You:** Show me event 5 of that run.
+>
+> **Claude:** *(calls `get_event` with `seq=5`)*
+> AssistantMessageCompleted at 14:32:05.882, payload says it
+> planned to call `fetch` with `{url: "https://..."}`, stop_reason
+> `tool_use`, 421 input + 18 output tokens, hash
+> `9038a81bea67…`.
+
+The model picks which tool to call. You ask a normal question.
+
+## Read-only by construction
+
+Three layers of defence:
+
+1. **Storage layer.** `eventlog.NewSQLite(path,
+   eventlog.WithReadOnly())` - `Append` returns `ErrReadOnly`.
+2. **Tool surface.** The server registers no write tools. There is
+   no `add_event`, no `prune`, no `migrate`. Even a malicious
+   client can't ask for what isn't there.
+3. **Construction.** `mcpsrv.New` accepts an `eventlog.EventLog`,
+   not a path; the binary opens the read-only handle before
+   handing it off.
+
+## Limits and gotchas
+
+- **`search_runs` is naive.** It walks every event of every run
+  matching the filters; cost is `O(runs × events)`. Default cap is
+  50 hits (max 500); requires either `query` or `kind`. Real
+  indexes are a future pass.
+- **`get_run` event cap.** A single run can have thousands of
+  events with long assistant text. Default cap is 200 events per
+  call; the response includes `truncated: true` and a
+  `total_events` count so the model knows to page.
+- **No streaming.** MCP tools are request/response. To watch a run
+  unfold turn-by-turn, use the [inspector](/docs/inspector) - its
+  SSE timeline is the right surface for that.
+- **One DB per server.** Configure multiple `mcpServers` entries in
+  your client to query multiple databases.
+
+## See also
+
+<Cards>
+  <Card title="MCP tools (outbound)" href="/docs/mcp-tools" description="The other half: agents calling external MCP servers as tools." />
+  <Card title="Inspector" href="/docs/inspector" description="Web UI for the same event log. SSE-streamed live timeline." />
+  <Card title="Events" href="/docs/events" description="The event Kinds whose payloads get_event decodes." />
+</Cards>

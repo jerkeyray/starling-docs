@@ -191,8 +191,59 @@ prov, err := openrouter.New(
 | `WithProviderID(id)`     | Override `Info().ID`.                                   |
 | `WithHTTPClient(c)`      | Custom HTTP client.                                     |
 
-OpenRouter is a thin wrapper over the OpenAI adapter — same chunk
+OpenRouter is a thin wrapper over the OpenAI adapter - same chunk
 contract, plus attribution headers. Use OpenAI-style model strings.
+
+## Error classification
+
+Adapters wrap their underlying SDK / HTTP errors with one of four
+sentinels so retry policy lives in caller code, not in
+vendor-string parsing. Categories are non-overlapping; an error
+wraps at most one.
+
+```go
+var (
+    provider.ErrRateLimit  // 429 / quota
+    provider.ErrAuth       // 401 / 403
+    provider.ErrServer     // 5xx
+    provider.ErrNetwork    // DNS / dial / TLS / broken stream
+)
+```
+
+The two helpers used by every in-tree adapter:
+
+```go
+provider.WrapHTTPStatus(err, status int) error
+provider.ClassifyTransport(err error) error
+```
+
+`WrapHTTPStatus` annotates by HTTP status code; `status == 0`
+delegates to `ClassifyTransport`, which wraps `net.Error` and
+`*url.Error` with `ErrNetwork`. Statuses outside the four
+categories pass through unmodified - 4xx errors that are neither
+auth nor rate-limit (invalid request, model not found) reflect a
+caller bug, not a transient condition, so they stay unwrapped on
+purpose.
+
+Caller code:
+
+```go
+_, stream, err := prov.Stream(ctx, req)
+switch {
+case errors.Is(err, provider.ErrRateLimit):
+    backoff(); retry()
+case errors.Is(err, provider.ErrAuth):
+    return fmt.Errorf("starling: bad credentials: %w", err)
+case errors.Is(err, provider.ErrServer), errors.Is(err, provider.ErrNetwork):
+    backoff(); retry()
+case err != nil:
+    return err  // 4xx caller bug; surface unmodified
+}
+```
+
+If you write your own provider adapter, call `WrapHTTPStatus` from
+the entry point that receives the upstream response and your
+callers automatically get the same retry contract.
 
 ## The streaming chunk contract
 

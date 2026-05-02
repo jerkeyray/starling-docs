@@ -104,14 +104,29 @@ for _, ev := range events {
 
 ## USD pricing
 
-The price table lives in `budget/prices.go` and is package-private —
-not overridable at runtime. To add or change a model's rates, edit the
-table in source. The table maps model id → input price, output price
-(USD per million tokens).
+The built-in price table lives in `budget/prices.go` and ships
+rates for the major-vendor models (OpenAI, Anthropic, Gemini,
+Bedrock foundation models). Rates are USD per million input /
+output tokens.
 
-For models not in the table, `MaxUSD` enforcement skips that axis (the
-runtime can't price what it doesn't know). Set `MaxInputTokens` and
-`MaxOutputTokens` as a defense-in-depth.
+For custom in-house models or vendor models the table doesn't yet
+cover, register pricing at runtime:
+
+```go
+import "github.com/jerkeyray/starling/budget"
+
+budget.RegisterPricing("my-finetune", inPerMtok, outPerMtok)
+```
+
+`RegisterPricing` clears the unknown-model warn-once memo so a
+stale "no price entry for ..." warning doesn't outlive the
+registration. Negative or zero rates are accepted (they multiply
+through unmodified) - the intended use is custom models, not
+overriding shipped rates.
+
+For models still not in the table, `MaxUSD` enforcement skips that
+axis (the runtime can't price what it doesn't know). Always set
+`MaxInputTokens` and `MaxOutputTokens` as defense-in-depth.
 
 ## Picking values
 

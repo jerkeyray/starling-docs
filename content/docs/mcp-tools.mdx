@@ -1,8 +1,14 @@
 ---
-title: MCP tools
+title: MCP tools (outbound client)
 description: Mount remote MCP servers as ordinary Starling tools. stdio subprocess, streamable HTTP, replay-safe.
 icon: Plug
 ---
+
+<Callout type="info">
+This page is the outbound MCP **client** - agents calling external
+MCP servers. For the inbound **server** that lets AI assistants
+query your recorded event log, see [MCP server](/docs/mcp-server).
+</Callout>
 
 `tool/mcp` adapts [Model Context Protocol](https://modelcontextprotocol.io)
 servers onto `tool.Tool`. The core runtime stays MCP-agnostic.

@@ -26,10 +26,14 @@ type RunPageLister interface {
     ListRunsPage(ctx context.Context, opts RunPageOptions) (RunPage, error)
 }
 
+type RunPruner interface {
+    PruneRuns(ctx context.Context, opts PruneOptions) (PruneReport, error)
+}
+
 type RunPageOptions struct {
     Limit            int
     Offset           int
-    Status           event.Kind
+    Status           string
     Query            string
     StartedAfter     time.Time
     RequireToolCalls bool
@@ -43,17 +47,29 @@ type RunPage struct {
 }
 
 type RunSummary struct {
-    RunID        string
-    StartedAt    time.Time
-    LastSeq      uint64
-    TerminalKind event.Kind
+    RunID         string
+    StartedAt     time.Time
+    LastSeq       uint64
+    TerminalKind  event.Kind
+
+    // Aggregates over the run's events. Computed by every backend's
+    // ListRuns implementation; zero values are valid for runs that
+    // haven't produced an AssistantMessageCompleted yet.
+    TurnCount     int
+    ToolCallCount int
+    InputTokens   int64
+    OutputTokens  int64
+    CostUSD       float64
+    DurationMs    int64  // wall time from RunStarted to last event
 }
 ```
 
-All three built-in backends satisfy `RunLister` and `RunPageLister`.
-The inspector uses `RunPageLister` when available, and falls back to
-`RunLister` for custom backends that only implement the older listing
-interface.
+All three built-in backends satisfy `RunLister`, `RunPageLister`, and
+`RunPruner`. The inspector uses `RunPageLister` when available, and
+falls back to `RunLister` for custom backends that only implement the
+older listing interface. The aggregate fields on `RunSummary` are
+computed at list time so dashboards don't have to re-aggregate event
+streams.
 
 ## Picking a backend
 
@@ -244,6 +260,64 @@ page, err := log.ListRunsPage(ctx, eventlog.RunPageOptions{
 filters, ordering, and pagination in SQL before materializing run
 summaries, so large logs do not need to load every run just to render
 the first page. No schema migration is required.
+
+## Retention pruning
+
+Pruning is an explicit operator action outside the append-only
+`EventLog` contract. It deletes whole runs only; it never removes a
+single event or suffix from a run.
+
+```bash
+starling prune --older-than 720h /var/lib/starling/log.db          # dry run
+starling prune --older-than 720h --confirm /var/lib/starling/log.db
+starling prune --before 2026-01-01T00:00:00Z --status completed /var/lib/starling/log.db
+```
+
+The default selection is terminal runs (`completed`, `failed`, and
+`cancelled`) older than the cutoff. In-progress runs are kept unless
+you pass `--status "in progress"` or `--include-in-progress`.
+
+## Helpers
+
+```go
+turns, tools, inTok, outTok, cost, durNs :=
+    eventlog.AggregateRun(events)
+```
+
+`AggregateRun` is the single source of truth for per-run totals
+across the runtime: the inspector's totals strip, the MCP server's
+`summarize_run` tool, and `RunSummary`'s aggregate fields all share
+this implementation. An event whose payload fails to decode is
+skipped rather than failing the whole aggregation, since callers
+are typically presentation surfaces where one broken row should not
+blank the dashboard.
+
+```go
+err := eventlog.ForkSQLite(ctx, srcPath, dstPath, runID, beforeSeq)
+```
+
+WAL-safe SQLite branching. Copies the source via `VACUUM INTO` (the
+only way to copy a live WAL-mode database without leaking the
+`.db-wal` and `.db-shm` sidecars) and truncates `runID`'s events to
+those with `seq < beforeSeq`. Other runs are preserved verbatim.
+
+`beforeSeq=0` keeps every event for `runID` (forks the run as-is);
+returns `ErrForkNotFound` when nothing matches in the source. See
+[`docs/cookbook/branching.md`](https://github.com/jerkeyray/starling/blob/main/docs/cookbook/branching.md)
+in the runtime repo for a worked example.
+
+## Public `merkle` package
+
+```go
+import "github.com/jerkeyray/starling/merkle"
+```
+
+The BLAKE3 hash-chain helpers used by `Agent.Run` are exposed as a
+public package. Third parties writing their own event producers can
+reuse the chain implementation rather than copying it - useful for
+non-`Agent.Run` recorders that need to write into an `EventLog` and
+maintain compatible chain output (e.g. importers, replay
+harnesses, or custom dashboards that want to rebuild a Merkle root).
 
 ## Sentinel errors
 

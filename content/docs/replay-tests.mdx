@@ -152,6 +152,35 @@ Real things that flip the test from green to red:
 Each is a real signal that today's build does something different from
 the day you recorded the fixture.
 
+## Provider / model mismatch
+
+Before any turn replays, `Replay` cross-checks the agent's current
+`Provider.ID` / `APIVersion` / `Config.Model` against the values
+recorded in the log's `RunStarted` event. If any of the three
+disagree, replay fails fast with `starling.ErrProviderModelMismatch`
+- typically the "I edited the agent factory and forgot the
+fixture is older" mistake, surfaced before the test produces a
+confusing turn-1 byte diff.
+
+```go
+err := starling.Replay(ctx, log, runID, agent)
+if errors.Is(err, starling.ErrProviderModelMismatch) {
+    t.Fatalf("agent wiring drifted from fixture: %v", err)
+}
+```
+
+Override when the divergence is intentional (e.g. you re-recorded
+the fixture and want the same test file to replay both shapes):
+
+```go
+err := starling.Replay(ctx, log, runID, agent, starling.WithForceProvider())
+```
+
+The CLI equivalent is `starling replay --force <db> <runID>`. With
+`--force`, all other replay invariants still apply - chunks, tool
+output bytes, step-name lookups - so the only thing relaxed is the
+provider/model identity check itself.
+
 ## Multiple fixtures
 
 Capture more than one run, one per behavior you care about: happy

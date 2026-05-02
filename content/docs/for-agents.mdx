@@ -13,7 +13,7 @@ at the latest revision. Copy it whole into your assistant's context.
 - Paste the entire fenced block (including the outer ` ```md ` fences)
   into your AI's system prompt or "rules" file (Cursor `.cursorrules`,
   Claude project instructions, etc.).
-- Re-paste when you upgrade Starling — the API surface is small but
+- Re-paste when you upgrade Starling - the API surface is small but
   the field defaults and sentinel-error names matter.
 - This page does not replace the human-facing guides. Use it
   alongside [Concepts](/docs/concepts), the [Build](/docs/build/agent)
@@ -96,21 +96,48 @@ type RunResult struct {
     Duration      time.Duration
     TerminalKind  event.Kind  // RunCompleted | RunFailed | RunCancelled
     MerkleRoot    []byte
+    CacheStats    CacheStats  // prompt-cache aggregates; zero on providers that don't surface them
+}
+
+type CacheStats struct {
+    Hits         int    // turns whose CacheReadTokens > 0
+    Misses       int    // turns that consumed input but read 0 cached prefix
+    ReadTokens   int64  // sum of CacheReadTokens across turns
+    CreateTokens int64  // sum of CacheCreateTokens across turns
 }
 ```
 
 **Sentinel errors (root package):**
 
-- `starling.ErrNonDeterminism`     — replay diverged
-- `starling.ErrPartialToolCall`    — Resume saw pending tools, WithReissueTools(false)
-- `starling.ErrRunNotFound`        — Resume on unknown runID
-- `starling.ErrRunAlreadyTerminal` — Resume on terminal run
-- `starling.ErrRunInUse`           — chain advanced between read and append
-- `starling.ErrSchemaVersionMismatch` — recorded schema unsupported
+- `starling.ErrNonDeterminism`        - replay diverged
+- `starling.ErrPartialToolCall`       - Resume saw pending tools, WithReissueTools(false)
+- `starling.ErrRunNotFound`           - Resume on unknown runID
+- `starling.ErrRunAlreadyTerminal`    - Resume on terminal run
+- `starling.ErrRunInUse`              - chain advanced between read and append
+- `starling.ErrSchemaVersionMismatch` - recorded schema unsupported
+- `starling.ErrProviderModelMismatch` - Replay agent's Provider/APIVersion/Model disagrees with the recording
+
+**Streaming with `RunStream`:**
+
+```go
+runID, ch, err := a.RunStream(ctx, "Look up customer 42 ...")
+if err != nil { return err }
+
+for ev := range ch {
+    switch e := ev.(type) {
+    case starling.TextDelta:        // assistant turn text
+    case starling.ToolCallStarted:  // ToolCallScheduled
+    case starling.ToolCallEnded:    // ToolCallCompleted/Failed; e.Err set on failure
+    case starling.Done:             // always last; e.TerminalKind, e.FinalText, e.Err
+    }
+}
+```
+
+The channel always closes after a single `Done`. Setup errors (validation, log open) surface synchronously from `RunStream`. Use `Stream` directly if you need every event with the full envelope.
 
 ---
 
-## 2. Determinism contract — `step.*`
+## 2. Determinism contract - `step.*`
 
 Anything non-deterministic inside the agent loop OR inside a tool MUST
 go through `step.*`. Replay re-executes tool bodies live, so
@@ -185,6 +212,46 @@ step.CallTools(ctx, calls)        // fan-out, semaphore = step.DefaultMaxParalle
 Each retry attempt emits its own `ToolCallScheduled` +
 `ToolCallCompleted/Failed` pair under the same `CallID` with
 incrementing `Attempt`.
+
+**Middleware with `tool.Wrap`:**
+
+```go
+type Middleware func(inner func(context.Context, json.RawMessage) (json.RawMessage, error)) func(context.Context, json.RawMessage) (json.RawMessage, error)
+
+func tool.Wrap(t Tool, mw ...Middleware) Tool
+```
+
+Composes middleware around `Execute` without re-implementing `Tool`.
+`Name`, `Description`, and `Schema` pass through unchanged so the
+model sees the same contract. The first `Middleware` passed wraps
+the inner-most call; the last one passed runs first (matches
+`net/http.Handler` chaining). A middleware that returns without
+calling `inner` short-circuits the chain.
+
+```go
+auditing := tool.Wrap(myTool, withAuth, withTiming)
+// withAuth runs first; if it short-circuits, withTiming and myTool.Execute are skipped.
+```
+
+**Test scaffolding (`starlingtest/`):**
+
+```go
+import "github.com/jerkeyray/starling/starlingtest"
+
+// Deterministic provider that yields canned chunks.
+prov := &starlingtest.ScriptedProvider{
+    Steps: [][]provider.StreamChunk{ /* one slice per turn */ },
+}
+
+stream := starlingtest.NewStream(chunks)                                  // build a single EventStream
+ev     := starlingtest.AppendRunStarted(t, log, runID, opts)              // seed a chain in tests
+starlingtest.AssertReplayMatches(t, log, runID, agent)                    // green-path
+starlingtest.AssertReplayDiverges(t, log, runID, agent)                   // expected-divergence
+```
+
+`ScriptedProvider` satisfies `provider.Provider` and is what every
+internal Starling test uses; consumers can use it to drive
+hermetic replay tests without contacting an LLM.
 
 **Built-in tools (`tool/builtin/`):**
 
@@ -308,8 +375,58 @@ openrouter.New(
 )
 ```
 
+**Bedrock (AWS):**
+
+```go
+import (
+    "github.com/aws/aws-sdk-go-v2/aws"
+    "github.com/jerkeyray/starling/provider/bedrock"
+)
+bedrock.New(
+    bedrock.WithAWSConfig(cfg),                  // aws.Config from config.LoadDefaultConfig
+    bedrock.WithRegion("us-east-1"),             // alternative to passing aws.Config
+    bedrock.WithBaseEndpoint(url),               // optional
+    bedrock.WithAPIVersion(v),                   // optional
+    bedrock.WithProviderID(id),                  // optional
+    bedrock.WithHTTPClient(httpClient),
+)
+```
+
+Authentication uses the AWS SDK's standard credential chain (no
+`WithAPIKey`). Pass either an `aws.Config` you've already loaded or
+a `Region` and let the SDK build one.
+
 All `New` return `(provider.Provider, error)` (the interface, not a
 struct pointer). Always check the error.
+
+**Error classification:**
+
+Adapters wrap their underlying SDK/HTTP errors with one of four
+sentinels so retry policy lives in caller code, not in vendor-string
+parsing:
+
+```go
+var (
+    provider.ErrRateLimit    // 429 / quota
+    provider.ErrAuth         // 401 / 403
+    provider.ErrServer       // 5xx
+    provider.ErrNetwork      // DNS / dial / TLS / broken stream
+)
+
+provider.WrapHTTPStatus(err, status)  // call from adapter Stream() entry
+provider.ClassifyTransport(err)       // wraps net.Error / *url.Error with ErrNetwork
+```
+
+Caller code:
+
+```go
+if errors.Is(err, provider.ErrRateLimit) { /* back off, retry */ }
+if errors.Is(err, provider.ErrAuth)      { /* surface config bug, do not retry */ }
+```
+
+4xx errors that are neither auth nor rate-limit (invalid request,
+model not found) pass through unwrapped on purpose: they reflect a
+caller bug, not a transient condition.
 
 **Stream chunk kinds** (validated by `step.LLMCall`):
 
@@ -341,12 +458,79 @@ type RunLister interface {
 }
 
 type RunSummary struct {
-    RunID        string
-    StartedAt    time.Time
-    LastSeq      uint64
-    TerminalKind event.Kind
+    RunID         string
+    StartedAt     time.Time
+    LastSeq       uint64
+    TerminalKind  event.Kind
+
+    // Aggregates over the run's events. Computed by every backend's
+    // ListRuns implementation; zero values are valid for runs that
+    // haven't produced an AssistantMessageCompleted yet.
+    TurnCount     int
+    ToolCallCount int
+    InputTokens   int64
+    OutputTokens  int64
+    CostUSD       float64
+    DurationMs    int64  // wall time from RunStarted to last event
 }
 ```
+
+**Optional interfaces** (backend may implement; type-assert at use site):
+
+```go
+type RunPageLister interface {
+    ListRunsPage(ctx context.Context, opts RunPageOptions) (RunPage, error)
+}
+
+type RunPageOptions struct {
+    Limit, Offset    int
+    Status           string      // "completed" | "failed" | "cancelled" | "in progress"
+    Query            string      // case-insensitive substring on run id + status
+    StartedAfter     time.Time   // exclusive lower bound
+    RequireToolCalls bool
+}
+
+type RunPage struct {
+    Runs          []RunSummary
+    TotalMatching int
+    Limit, Offset int
+}
+
+type RunPruner interface {
+    PruneRuns(ctx context.Context, opts PruneOptions) (PruneReport, error)
+}
+```
+
+`memoryLog`, `sqliteLog`, and `postgresLog` all implement both today.
+
+**Helpers:**
+
+```go
+// Compute per-run totals over a chained event slice. Source of truth
+// for the inspector, the MCP server, and any custom dashboard.
+turns, tools, inTok, outTok, cost, durNs :=
+    eventlog.AggregateRun(events)
+
+// WAL-safe SQLite branch: copy a log via VACUUM INTO, truncate
+// runID's events to seq < beforeSeq. Other runs in the source are
+// preserved verbatim. dstPath must not exist.
+err := eventlog.ForkSQLite(ctx, srcPath, dstPath, runID, beforeSeq)
+```
+
+`beforeSeq=0` keeps every event for `runID` (forks the run as-is).
+Returns `eventlog.ErrForkNotFound` when `runID/beforeSeq` matches
+nothing in the source.
+
+**Public `merkle` package:**
+
+```go
+import "github.com/jerkeyray/starling/merkle"
+```
+
+The BLAKE3 chain helpers used by the runtime are public so third
+parties writing their own event producers can reuse the chain
+implementation rather than copying it. Useful for non-`Agent.Run`
+recorders that want compatible hash-chain output.
 
 **Constructors:**
 
@@ -425,12 +609,24 @@ type BudgetExceeded struct {
 
 A trip emits `BudgetExceeded` (which carries the `Limit`/`Cap`/`Actual`
 context) then unwinds with `RunFailed{ErrorType:"budget"}`. `RunFailed`
-itself has fields `Error`, `ErrorType`, `MerkleRoot`, `DurationMs` —
+itself has fields `Error`, `ErrorType`, `MerkleRoot`, `DurationMs` -
 look at the preceding `BudgetExceeded` for the axis-specific detail.
 
-**USD pricing** is package-private in `budget/prices.go`. Models not
-in the table skip USD enforcement. Always set token caps as
-defense-in-depth.
+**USD pricing** ships built-in for the major-vendor models in
+`budget/prices.go`. Models not in the table skip USD enforcement;
+register your own at runtime if you've got a custom or in-house
+model:
+
+```go
+import "github.com/jerkeyray/starling/budget"
+
+budget.RegisterPricing("my-finetune", inPerMtok, outPerMtok)
+// rates are USD per million tokens; resets the unknown-model
+// warn-once memo so a stale warning doesn't outlive the call.
+```
+
+Always set token caps as defense-in-depth: USD enforcement only
+trips for known-priced models.
 
 `Config.MaxTurns` is separate: caps the ReAct loop and unwinds with
 `RunFailed{ErrorType:"max_turns"}`. Use both in production.
@@ -441,7 +637,10 @@ defense-in-depth.
 
 ```go
 // Root package wrapper, takes *Agent.
-func starling.Replay(ctx, log, runID, *Agent) error
+func starling.Replay(ctx, log, runID, *Agent, opts ...ReplayOption) error
+
+// Option: disables the provider/model identity check.
+func starling.WithForceProvider() ReplayOption
 
 // Subpackage, takes Agent interface (good for stubs in tests).
 func replay.Verify(ctx, log, runID, replay.Agent) error
@@ -479,6 +678,12 @@ type ReplayStep struct {
   recording. Your real provider is never contacted.
 - Original `Agent.Provider` MUST be non-nil (validate runs before the
   swap). Any stub satisfies this.
+- **Provider/model identity check.** `Replay` refuses to run when
+  the agent's `Provider.ID` / `APIVersion` / `Config.Model`
+  disagree with what was recorded in `RunStarted`. Returns
+  `ErrProviderModelMismatch` before any turn executes. Override
+  with `starling.WithForceProvider()` (or `--force` on
+  `starling replay`) when the divergence is intentional.
 - Tools **re-execute live**. Their output bytes are compared against
   the recorded `ToolCallCompleted` payload. Wrap non-determinism in
   `step.*` or replay diverges.
@@ -519,13 +724,19 @@ import "github.com/jerkeyray/starling/inspect"
 
 srv, err := inspect.New(log,
     inspect.WithAuth(inspect.BearerAuth(os.Getenv("STARLING_INSPECT_TOKEN"))),
-    inspect.WithReplayer(factory),  // optional, enables replay re-execution
+    inspect.WithReplayer(factory),    // optional, enables replay re-execution
+    inspect.WithDBPath("/path/to/runs.db"),  // optional; populates the topbar context chip
 )
 http.ListenAndServe(":8080", srv)
 ```
 
 Read-only by construction. CSRF on the two replay POST endpoints.
 Front with TLS for non-loopback access.
+
+The UI ships dark-mode-by-default with a theme toggle, syntax-
+highlighted JSON payloads, click-to-copy hashes, totals strip on
+the runs page, and a run-diff view at `/diff?a=<runID>&b=<runID>`
+that aligns two runs by sequence number.
 
 Standalone binary: `cmd/starling-inspect <db>` opens any SQLite log
 read-only with no replay capability.
@@ -548,18 +759,18 @@ a := &starling.Agent{ /* ... */ Metrics: metrics }
 
 Labels (verified):
 
-- `starling_runs_started_total`                — no labels
-- `starling_runs_in_flight`                    — no labels
-- `starling_run_duration_seconds`              — `status`
-- `starling_run_terminal_total`                — `status`, `error_type`
-- `starling_provider_calls_total`              — `model`, `status`
-- `starling_provider_call_duration_seconds`    — `model`
-- `starling_provider_tokens_total`             — `model`, `type`
-- `starling_tool_calls_total`                  — `tool`, `status`, `error_type`
-- `starling_tool_call_duration_seconds`        — `tool`
-- `starling_eventlog_appends_total`            — `kind`, `status`
-- `starling_eventlog_append_duration_seconds`  — `kind`
-- `starling_budget_exceeded_total`             — `axis`
+- `starling_runs_started_total`                - no labels
+- `starling_runs_in_flight`                    - no labels
+- `starling_run_duration_seconds`              - `status`
+- `starling_run_terminal_total`                - `status`, `error_type`
+- `starling_provider_calls_total`              - `model`, `status`
+- `starling_provider_call_duration_seconds`    - `model`
+- `starling_provider_tokens_total`             - `model`, `type`
+- `starling_tool_calls_total`                  - `tool`, `status`, `error_type`
+- `starling_tool_call_duration_seconds`        - `tool`
+- `starling_eventlog_appends_total`            - `kind`, `status`
+- `starling_eventlog_append_duration_seconds`  - `kind`
+- `starling_budget_exceeded_total`             - `axis`
 
 OTel spans: `agent.run` → `agent.turn × N` → `provider.stream` +
 `step.tool × M`.
@@ -571,10 +782,14 @@ OTel spans: `agent.run` → `agent.turn × N` → `provider.stream` +
 ```bash
 starling validate <db> [<runID>]   # hash chain + Merkle check; full log if no runID
 starling export   <db> <runID>     # NDJSON event dump to stdout
+starling prune    [flags] <db>     # dry-run-first whole-run retention deletion
 starling inspect  [flags] <db>     # local web inspector (read-only)
+starling mcp      <db>             # read-only MCP server over stdio for AI clients
 starling replay   <db> <runID>     # headless replay (dual-mode binary only)
 starling migrate  [-dry-run] <db>  # apply pending schema migrations (single dash; -dry-run)
 starling schema-version <db>       # print the current schema version
+starling doctor                    # quick health check: version, env vars, schema, validation
+starling version                   # print the binary's Starling version (also -v / --version)
 ```
 
 Stock binary is SQLite-only. Build a dual-mode binary (link your
@@ -583,12 +798,28 @@ with replay re-execution.
 
 ---
 
-## 11. Anti-patterns (don't write these)
+## 11. MCP server (inbound)
+
+`starling-mcp` exposes a recorded event log to AI assistants over
+the Model Context Protocol. Read-only by construction; runs as a
+stdio subprocess of Claude Desktop / Cursor / Claude Code. Tools:
+`list_runs`, `get_run`, `get_event`, `summarize_run`,
+`validate_run`, `diff_runs`, `search_runs`. Install:
+`go install github.com/jerkeyray/starling/cmd/starling-mcp@latest`.
+The stock CLI bundles the same surface as `starling mcp <db>`.
+
+This is the inbound counterpart of `tool/mcp` (which is the
+outbound MCP *client* used by agents to call external MCP servers).
+Full reference: `/docs/mcp-server`.
+
+---
+
+## 12. Anti-patterns (don't write these)
 
 ```go
 // 1. Reading wall-clock or RNG inside a tool without step.*
 fn := func(ctx context.Context, in In) (Out, error) {
-    return Out{When: time.Now()}, nil  // BAD — replay diverges
+    return Out{When: time.Now()}, nil  // BAD - replay diverges
 }
 
 // Fix:
@@ -597,41 +828,41 @@ fn := func(ctx context.Context, in In) (Out, error) {
 }
 
 // 2. Forking goroutines without ctx propagation
-go someThing()                       // BAD — step.* will panic if it touches step
+go someThing()                       // BAD - step.* will panic if it touches step
 g, gctx := errgroup.WithContext(ctx)
 g.Go(func() error { /* uses gctx */ return nil })  // OK
 
 // 3. Wrapping non-transient errors with tool.ErrTransient
 if status == 401 {
-    return out, fmt.Errorf("auth: %w", tool.ErrTransient)  // BAD — infinite retries
+    return out, fmt.Errorf("auth: %w", tool.ErrTransient)  // BAD - infinite retries
 }
 return out, fmt.Errorf("auth failed: %d", status)         // OK
 
 // 4. step.SideEffect name that varies per run
-key := fmt.Sprintf("fetch-%d", time.Now().Unix())  // BAD — name not stable
+key := fmt.Sprintf("fetch-%d", time.Now().Unix())  // BAD - name not stable
 val, _ := step.SideEffect(ctx, key, fn)
 // Fix:
 val, _ := step.SideEffect(ctx, "fetch/"+stableID, fn)
 
 // 5. MaxTurns: 0 in production
-Config{MaxTurns: 0}     // BAD — runaway loops
+Config{MaxTurns: 0}     // BAD - runaway loops
 Config{MaxTurns: 12}    // OK
 
 // 6. Discarding constructor errors
-prov, _ := openai.New(openai.WithAPIKey(""))  // BAD — silent misconfig
+prov, _ := openai.New(openai.WithAPIKey(""))  // BAD - silent misconfig
 prov, err := openai.New(openai.WithAPIKey(key))
 if err != nil { return err }                  // OK
 
 // 7. Mocking the provider in replay tests
-// BAD — replay swaps Provider with a synthetic one already.
+// BAD - replay swaps Provider with a synthetic one already.
 // You only need a NON-NIL provider stub to pass validate().
 
 // 8. Multiple processes writing the same SQLite file
-// BAD — SQLite has no cross-host locking.
+// BAD - SQLite has no cross-host locking.
 // Use Postgres for multi-writer.
 
 // 9. SkipSchemaCheck: true in production
-Config{SkipSchemaCheck: true}  // BAD — hides forgotten migrations
+Config{SkipSchemaCheck: true}  // BAD - hides forgotten migrations
 
 // 10. Reusing a runID across runs
 a.Run(ctx, "...")        // mints fresh ULID
@@ -640,7 +871,7 @@ a.Run(ctx, "...")        // mints fresh ULID
 
 ---
 
-## 12. Quick reference: copy-pasteable agent skeleton
+## 13. Quick reference: copy-pasteable agent skeleton
 
 ```go
 package main

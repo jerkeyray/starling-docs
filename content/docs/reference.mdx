@@ -50,14 +50,22 @@ are interchangeable.
   a run from its last seq. Pending tool calls reissue under fresh
   `CallID`s; the orphan stays for audit. `ResumeWith(...opts)` adds
   `WithReissueTools(false)` for manual recovery.
-- **`Replay(ctx, log, runID, agent) error`** — re-executes against the
-  same wiring. Returns `nil` on a clean replay or wraps a
-  `*replay.Divergence` with `ErrNonDeterminism` on the first mismatch.
+- **`Replay(ctx, log, runID, agent, opts...) error`** — re-executes
+  against the same wiring. Returns `nil` on a clean replay, wraps a
+  `*replay.Divergence` with `ErrNonDeterminism` on the first
+  mismatch, or `ErrProviderModelMismatch` when the agent's
+  `Provider.ID` / `APIVersion` / `Config.Model` disagree with the
+  recording. `WithForceProvider()` disables the identity check.
+- **`RunStream(ctx, goal) (string, <-chan AgentEvent, error)`** —
+  typed event stream layered over `Stream`. Variants: `TextDelta`,
+  `ToolCallStarted`, `ToolCallEnded`, `Done`. Channel closes after
+  a single `Done`.
 
 `RunResult` carries `RunID`, `FinalText`, totals (`TurnCount`,
 `ToolCallCount`, `TotalCostUSD`, `InputTokens`, `OutputTokens`,
-`Duration`), `TerminalKind`, and `MerkleRoot`. All recoverable from the
-log; the struct is a convenience.
+`Duration`), `TerminalKind`, `MerkleRoot`, and `CacheStats`
+(`Hits`, `Misses`, `ReadTokens`, `CreateTokens`). All recoverable
+from the log; the struct is a convenience.
 
 ### Sentinel errors
 
@@ -69,6 +77,7 @@ log; the struct is a convenience.
 | `ErrRunAlreadyTerminal`     | Resume target ended with a terminal event.                                               |
 | `ErrRunInUse`               | Another writer already advanced the chain.                                               |
 | `ErrSchemaVersionMismatch`  | The recording's schema version is unsupported by this binary.                            |
+| `ErrProviderModelMismatch`  | Replay agent's Provider.ID / APIVersion / Config.Model disagrees with `RunStarted`.      |
 
 ## budget
 
@@ -82,6 +91,12 @@ log; the struct is a convenience.
 | `MaxOutputTokens`         | `int64`         | Mid-stream on every `ChunkUsage`.                   |
 | `MaxUSD`                  | `float64`       | Mid-stream using `budget/prices.go` per-model rates. |
 | `MaxWallClock`            | `time.Duration` | `context.WithDeadline` wrapping the run.            |
+
+`budget.RegisterPricing(model, inPerMtok, outPerMtok)` registers
+or overrides per-model USD pricing at runtime; resets the
+unknown-model warn-once memo so a stale warning doesn't outlive
+the call. Built-in rates ship for major-vendor models in
+`budget/prices.go`.
 
 ## event
 
@@ -119,7 +134,21 @@ type EventLog interface {
 
 `RunLister` adds `ListRuns(ctx) ([]RunSummary, error)`. `RunPageLister`
 adds `ListRunsPage(ctx, opts) (RunPage, error)` for filtered,
-server-side pagination. All three built-in backends implement both.
+server-side pagination. `RunPruner` adds explicit whole-run retention
+cleanup with `PruneRuns(ctx, opts) (PruneReport, error)`. All three
+built-in backends implement these optional interfaces.
+
+`RunSummary` carries per-run aggregates (`TurnCount`,
+`ToolCallCount`, `InputTokens`, `OutputTokens`, `CostUSD`,
+`DurationMs`) so dashboards don't have to re-aggregate event streams.
+
+Helpers: `eventlog.AggregateRun(events)` returns the same totals
+over a chained event slice (single source of truth for the
+inspector and the MCP server). `eventlog.ForkSQLite(ctx, src,
+dst, runID, beforeSeq)` is a WAL-safe SQLite branch via
+`VACUUM INTO`, truncating one run's events at a sequence
+boundary. The BLAKE3 chain helpers used by `Agent.Run` are public
+at [`github.com/jerkeyray/starling/merkle`](https://pkg.go.dev/github.com/jerkeyray/starling/merkle).
 
 ### Backends
 
@@ -214,6 +243,21 @@ type Tool interface {
 from `In` via reflection. Errors wrapping `tool.ErrTransient` opt the
 call into retry under `step.ToolCall{Idempotent: true, MaxAttempts: N}`.
 
+`tool.Wrap(t Tool, mw ...Middleware) Tool` composes middleware
+around `Execute` while passing `Name`, `Description`, and `Schema`
+through unchanged. Last middleware passed runs first
+(net/http.Handler ordering); short-circuiting middleware can skip
+the inner call entirely. Useful for logging, timing, span
+injection, request authentication, output redaction.
+
+### Test scaffolding (`starlingtest/`)
+
+`ScriptedProvider` is a deterministic `provider.Provider` driven
+by a slice of canned chunks per turn. Helpers `NewStream`,
+`AppendRunStarted`, `AssertReplayMatches`, and
+`AssertReplayDiverges` cover the common test shapes without
+contacting an LLM.
+
 ### MCP adapter (`tool/mcp`)
 
 Three constructors mount remote MCP tools as ordinary Starling tools:
@@ -225,7 +269,9 @@ Three constructors mount remote MCP tools as ordinary Starling tools:
 Each connects, lists remote tools, and exposes them via
 `client.Tools(ctx)`. Calls route through `step.SideEffect` so replay
 never re-contacts the server. Full options table on the
-[MCP](/docs/mcp) page.
+[MCP tools](/docs/mcp-tools) page. The inbound counterpart - a
+read-only MCP **server** that exposes a recorded log to AI clients -
+lives at [MCP server](/docs/mcp-server).
 
 ### Built-in tools
 
@@ -271,6 +317,25 @@ Each adapter advertises its support set via
 `provider.Capabler.Capabilities()`. The conformance suite skips
 capability-gated assertions when the adapter reports `false`.
 
+### Error classification
+
+Adapters wrap underlying SDK / HTTP errors with one of four
+sentinels for retry policy via `errors.Is`:
+
+| Sentinel               | When                                                |
+|------------------------|-----------------------------------------------------|
+| `provider.ErrRateLimit` | 429 / quota                                        |
+| `provider.ErrAuth`      | 401 / 403                                          |
+| `provider.ErrServer`    | 5xx                                                |
+| `provider.ErrNetwork`   | DNS / dial / TLS / broken stream                   |
+
+Helpers: `provider.WrapHTTPStatus(err, status)` annotates by HTTP
+status (delegates to `ClassifyTransport` when `status == 0`);
+`provider.ClassifyTransport(err)` wraps `net.Error` and
+`*url.Error` with `ErrNetwork`. 4xx errors that are neither auth
+nor rate-limit pass through unwrapped on purpose - they reflect
+caller bugs, not transient conditions.
+
 ## replay
 
 - **`Verify(ctx, log, runID, agent)`** — headless check. Returns `nil`
@@ -296,6 +361,8 @@ detail, live tail (SSE), and replay. The standalone binary at
 - **`WithAuth(authenticator)`** — protect every endpoint.
 - **`BearerAuth(token)`** — convenience `Authenticator`.
 - **`WithReplayer(factory)`** — enable replay re-execution.
+- **`WithDBPath(path)`** — show the DB basename in the topbar
+  context chip (full path on hover).
 
 Read-only by construction, CSRF-protected on the replay POST endpoints.
 Front it with TLS in production: see [Operations](/docs/operations).
@@ -305,10 +372,14 @@ Front it with TLS in production: see [Operations](/docs/operations).
 ```bash
 starling validate <db> [<runID>]   # hash chain + Merkle check
 starling export   <db> <runID>     # NDJSON event dump
+starling prune    [flags] <db>     # dry-run-first retention deletion
 starling inspect  [flags] <db>     # local web inspector (read-only)
+starling mcp      <db>             # read-only MCP server over stdio for AI clients
 starling replay   <db> <runID>     # headless replay (dual-mode binary only)
 starling migrate  [-dry-run] <db>  # apply pending schema migrations
 starling schema-version <db>       # print the current schema version
+starling doctor                    # quick health check: version, env vars, schema, validation
+starling version                   # print the binary's Starling version (also -v / --version)
 ```
 
 The stock binary is SQLite-only. Building a dual-mode binary that

@@ -4,7 +4,7 @@ description: Starling is a Go runtime for building LLM agents where every run is
 icon: House
 ---
 
-import { Rocket, Compass, ScrollText, Plug, Wrench, BookOpen, Hammer } from 'lucide-react';
+import { Rocket, Compass, ScrollText, Plug, Server, Wrench, BookOpen, Hammer } from 'lucide-react';
 
 A Go runtime for building LLM agents where every run is an append-only,
 BLAKE3-chained, Merkle-rooted event log. When an agent fails in production,
@@ -73,12 +73,18 @@ step where today's behavior diverges.
 <Cards>
   <Card
     icon={<Plug className="text-cyan-500" />}
-    title="MCP tools"
-    href="/docs/mcp"
+    title="MCP tools (outbound)"
+    href="/docs/mcp-tools"
     description="Mount remote MCP servers as Starling tools. stdio + streamable HTTP."
   />
   <Card
-    icon={<Wrench className="text-emerald-500" />}
+    icon={<Server className="text-emerald-500" />}
+    title="MCP server (inbound)"
+    href="/docs/mcp-server"
+    description="Expose your event log to Claude Desktop, Cursor, Claude Code. Read-only stdio."
+  />
+  <Card
+    icon={<Wrench className="text-cyan-500" />}
     title="Operations"
     href="/docs/operations"
     description="Deployment, security, retention, metrics, tracing."
