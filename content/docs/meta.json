@@ -7,6 +7,7 @@
     "build",
     "replay-tests",
     "inspector",
+    "starlingd",
     "mcp-tools",
     "mcp-server",
     "for-agents",

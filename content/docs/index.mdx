@@ -4,7 +4,7 @@ description: Starling is a Go runtime for building LLM agents where every run is
 icon: House
 ---
 
-import { Rocket, Compass, ScrollText, Plug, Server, Wrench, BookOpen, Hammer } from 'lucide-react';
+import { Rocket, Compass, ScrollText, Plug, Server, Wrench, BookOpen, Hammer, RadioTower } from 'lucide-react';
 
 A Go runtime for building LLM agents where every run is an append-only,
 BLAKE3-chained, Merkle-rooted event log. When an agent fails in production,
@@ -82,6 +82,12 @@ step where today's behavior diverges.
     title="MCP server (inbound)"
     href="/docs/mcp-server"
     description="Expose your event log to Claude Desktop, Cursor, Claude Code. Read-only stdio."
+  />
+  <Card
+    icon={<RadioTower className="text-cyan-500" />}
+    title="HTTP daemon"
+    href="/docs/starlingd"
+    description="Serve your own agent over HTTP with async runs, SSE, metrics, auth, and inspector."
   />
   <Card
     icon={<Wrench className="text-cyan-500" />}

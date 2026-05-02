@@ -273,6 +273,15 @@ never re-contacts the server. Full options table on the
 read-only MCP **server** that exposes a recorded log to AI clients -
 lives at [MCP server](/docs/mcp-server).
 
+### HTTP daemon (`starlingd`)
+
+`starlingd.Command(factory)` builds a CLI entrypoint for serving your
+own agent over HTTP. `starlingd.New(config)` returns an `http.Handler`
+for apps that already own server setup. The daemon exposes async run
+creation, bounded in-process queueing, SSE streams, read APIs,
+Prometheus metrics, bearer auth, and an optional inspector mount. Full
+reference lives at [HTTP daemon](/docs/starlingd).
+
 ### Built-in tools
 
 `tool/builtin/` ships `Fetch()` (public `http`/`https` only, 15s

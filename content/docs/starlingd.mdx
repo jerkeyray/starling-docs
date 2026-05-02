@@ -1,0 +1,158 @@
+---
+title: HTTP daemon
+description: Serve your own Starling agent over HTTP with async runs, SSE streams, metrics, bearer auth, and the inspector.
+icon: RadioTower
+---
+
+`package starlingd` turns your own `*starling.Agent` wiring into a
+small private HTTP service. Use it when another app needs to enqueue
+runs, stream progress, read recorded events, scrape Prometheus
+metrics, and open the inspector next to the API.
+
+<Callout type="warn">
+`starlingd` is intentionally not a distributed job system. The current
+queue is in-process FIFO. Use one daemon process per queue, and put
+durable orchestration above it if you need cross-process failover.
+</Callout>
+
+## Minimal binary
+
+```go
+package main
+
+import (
+	"context"
+	"os"
+
+	starling "github.com/jerkeyray/starling"
+	"github.com/jerkeyray/starling/provider/openai"
+	"github.com/jerkeyray/starling/starlingd"
+)
+
+func buildAgent(ctx context.Context) (*starling.Agent, error) {
+	prov, err := openai.New(openai.WithAPIKey(os.Getenv("OPENAI_API_KEY")))
+	if err != nil {
+		return nil, err
+	}
+	return &starling.Agent{
+		Provider: prov,
+		Config:   starling.Config{Model: "gpt-4o-mini", MaxTurns: 4},
+		// starlingd overwrites Log and Metrics for every run.
+	}, nil
+}
+
+func main() {
+	if len(os.Args) > 1 && os.Args[1] == "serve" {
+		if err := starlingd.Command(buildAgent).Run(os.Args[2:]); err != nil {
+			panic(err)
+		}
+		return
+	}
+	panic("usage: my-agent serve [flags] <db>")
+}
+```
+
+Run it:
+
+```bash
+STARLINGD_TOKEN=secret my-agent serve --addr 127.0.0.1:8080 starling.db
+```
+
+## Flags
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--addr` | `127.0.0.1:8080` | HTTP bind address. |
+| `--token` | empty | Bearer token. `STARLINGD_TOKEN` is also read. Empty disables auth. |
+| `--workers` | `4` | Number of in-process run workers. |
+| `--queue` | `100` | Maximum queued runs. |
+| `--job-retention` | `5m` | How long terminal in-memory job status is retained after completion, cancellation, or failure. Negative disables cleanup. |
+| `--no-inspect` | `false` | Disable the inspector mount. |
+
+## HTTP API
+
+All endpoints require `Authorization: Bearer <token>` when auth is
+configured.
+
+| Method | Path | Meaning |
+| --- | --- | --- |
+| `GET` | `/api/v1/healthz` | Process liveness. |
+| `GET` | `/api/v1/readyz` | Event log preflight and queue capacity. |
+| `POST` | `/api/v1/runs` | Enqueue a run. Body: `{"goal":"..."}`. Returns `202` with `run_id`. |
+| `GET` | `/api/v1/runs?limit=50&offset=0&status=completed&q=text` | List runs from the event log. |
+| `GET` | `/api/v1/runs/{runID}` | Run summary/detail. Queued runs return daemon status before events exist. |
+| `GET` | `/api/v1/runs/{runID}/events?limit=200&offset=0` | Raw event page. |
+| `GET` | `/api/v1/runs/{runID}/stream` | Server-sent events for history plus live updates. |
+| `POST` | `/api/v1/runs/{runID}/cancel` | Cancel a queued or running in-process job. |
+| `GET` | `/metrics` | Prometheus metrics. |
+| `GET` | `/inspect/` | Inspector, when enabled. |
+
+Create and stream a run:
+
+```bash
+curl -sS -H "Authorization: Bearer secret" \
+  -H "Content-Type: application/json" \
+  -d '{"goal":"summarize this incident"}' \
+  http://127.0.0.1:8080/api/v1/runs
+
+curl -N -H "Authorization: Bearer secret" \
+  http://127.0.0.1:8080/api/v1/runs/<runID>/stream
+```
+
+The stream emits SSE events named `status`, `event`, `done`, and
+`error`. `event` payloads include `seq`, `kind`, `timestamp`, hash
+fields, and the decoded event payload.
+
+## Programmatic server
+
+Use `starlingd.New` when you already own HTTP server setup:
+
+```go
+log, _ := eventlog.NewSQLite("starling.db")
+inspectorLog, _ := eventlog.NewSQLite("starling.db", eventlog.WithReadOnly())
+reg := prometheus.NewRegistry()
+metrics := starling.NewMetrics(reg)
+
+srv, err := starlingd.New(starlingd.Config{
+	Factory: func(context.Context) (*starling.Agent, error) {
+		return &starling.Agent{Provider: prov, Config: cfg}, nil
+	},
+	Log:          log,
+	InspectorLog: inspectorLog,
+	Metrics:      metrics,
+	Gatherer:     reg,
+	Workers:      8,
+	QueueSize:    500,
+	Auth:         starlingd.BearerAuth(os.Getenv("STARLINGD_TOKEN")),
+	Inspector:    true,
+	DBPath:       "starling.db",
+})
+```
+
+The factory must return a fresh agent per run. `starlingd` assigns the
+shared event log and metrics sink before execution, then uses
+`Agent.RunWithID` so the HTTP response can expose the run id before
+the worker starts.
+
+When using `starlingd.Command`, the run log is opened writable and the
+inspector is mounted with a separate SQLite `eventlog.WithReadOnly()`
+handle. When using `starlingd.New` directly, pass `InspectorLog` if
+you want that same hard guard; otherwise the inspector uses `Log`.
+
+## Production notes
+
+- Put TLS, rate limits, request size limits, and user auth at your
+  edge or reverse proxy. The built-in auth is a single bearer-token
+  guard for private services.
+- Keep `--queue` bounded. A full queue returns `503` instead of hiding
+  backpressure.
+- Keep `--job-retention` finite. The event log remains the source of
+  truth for completed runs; daemon memory only needs short-lived job
+  status for recently queued/running requests.
+- Use a durable log backend. SQLite is fine for one daemon node;
+  Postgres is the better fit when other services need to query runs.
+- Cancellation only covers jobs in the current process. If the daemon
+  dies, the event log remains the source of truth, but queued jobs are
+  not durable.
+- Mounting `/inspect` is useful for internal operations. Keep it
+  behind the same private boundary as the API.
