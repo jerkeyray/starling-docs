@@ -1,5 +1,5 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import { appName, gitConfig } from './shared';
+import { gitConfig } from './shared';
 
 const repoURL = `https://github.com/${gitConfig.user}/${gitConfig.repo}`;
 

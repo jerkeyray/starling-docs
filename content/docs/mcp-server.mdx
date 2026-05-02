@@ -71,7 +71,7 @@ Seven read-only tools. All return JSON; arguments are typed.
 | `summarize_run` | Turn count, tool-call count, in/out tokens, USD cost, duration, terminal kind, final assistant text. |
 | `validate_run` | Verify the BLAKE3 hash chain. Returns `{ok: true}` on a clean chain, otherwise `{ok: false, reason: "..."}`. |
 | `diff_runs` | Align two runs by sequence and classify each row as `match`, `diff`, `only-a`, or `only-b`. Includes the first-divergence sequence number. |
-| `search_runs` | Naive substring/kind scan across runs. Requires at least one of `query` or `kind`; cap with `limit` (default 50, max 500). Returns `{run_id, seq, kind, summary}` per hit plus `examined_events` so you can see how much it walked. |
+| `search_runs` | Naive substring/kind scan across a bounded run page. Requires at least one of `query` or `kind`; cap hits with `limit` (default 50, max 500), scanned runs with `run_limit` (default 200, max 1000), and inspected events with `max_examined_events` (default 10000, max 50000). Returns `{run_id, seq, kind, summary}` per hit plus scan counters. |
 
 ## Sample interactions
 
@@ -123,9 +123,12 @@ Three layers of defence:
 ## Limits and gotchas
 
 - **`search_runs` is naive.** It walks every event of every run
-  matching the filters; cost is `O(runs × events)`. Default cap is
-  50 hits (max 500); requires either `query` or `kind`. Real
-  indexes are a future pass.
+  matching the run page; cost is `O(runs × events)`. It requires
+  either `query` or `kind`, pages runs with `run_limit` /
+  `run_offset`, caps hits with `limit`, and stops once
+  `max_examined_events` is reached. Responses include
+  `runs_examined`, `total_matching_runs`, `runs_capped`, and
+  `scan_capped`. Real indexes are a future pass.
 - **`get_run` event cap.** A single run can have thousands of
   events with long assistant text. Default cap is 200 events per
   call; the response includes `truncated: true` and a

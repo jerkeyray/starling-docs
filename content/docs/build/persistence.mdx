@@ -251,7 +251,7 @@ Use `ListRunsPage` for UI or API surfaces that browse many runs:
 page, err := log.ListRunsPage(ctx, eventlog.RunPageOptions{
     Limit:  50,
     Offset: 0,
-    Status: event.KindRunCompleted,
+    Status: "completed",
     Query:  "support-ticket",
 })
 ```
@@ -276,6 +276,24 @@ starling prune --before 2026-01-01T00:00:00Z --status completed /var/lib/starlin
 The default selection is terminal runs (`completed`, `failed`, and
 `cancelled`) older than the cutoff. In-progress runs are kept unless
 you pass `--status "in progress"` or `--include-in-progress`.
+
+For Postgres, wire the same retention policy as a maintenance job with
+a role that has `SELECT` and `DELETE` on `eventlog_events`:
+
+```go
+report, err := log.(eventlog.RunPruner).PruneRuns(ctx, eventlog.PruneOptions{
+    Before: time.Now().Add(-90 * 24 * time.Hour),
+    DryRun: true,
+})
+if err != nil { return err }
+fmt.Printf("would delete %d runs\n", report.MatchedRuns)
+
+_, err = log.(eventlog.RunPruner).PruneRuns(ctx, eventlog.PruneOptions{
+    Before: time.Now().Add(-90 * 24 * time.Hour),
+})
+```
+
+Keep inspector roles read-only (`SELECT` only).
 
 ## Helpers
 

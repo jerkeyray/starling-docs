@@ -158,7 +158,7 @@ does not consume client certs: the proxy decision is authoritative.
 |-----------------------------|------------------------------------|----------------------------------------------------------------------------------|
 | Provider API keys           | `Agent.Provider` config            | Pass via env, not source. Never log.                                             |
 | `STARLING_INSPECT_TOKEN`    | Env var                            | Rotate on operator changes.                                                      |
-| Postgres DSN                | Env var                            | Use a role with minimum privileges (writer: `SELECT, INSERT`; inspector: `SELECT`). |
+| Postgres DSN                | Env var                            | Use a role with minimum privileges (writer: `SELECT, INSERT`; retention job: `SELECT, DELETE`; inspector: `SELECT`). |
 
 ### Sensitive event payloads
 
@@ -199,8 +199,10 @@ target one status and `--limit` to break large cleanup jobs into
 smaller batches. Run `VACUUM` during low traffic if you need SQLite to
 return freed pages to the filesystem.
 
-For Postgres, call `eventlog.RunPruner` in your maintenance job or use
-time partitions when you need instant archival drops.
+For Postgres, call `eventlog.RunPruner` in your maintenance job with a
+role that has `SELECT` and `DELETE` on `eventlog_events`, or use time
+partitions when you need instant archival drops. Keep inspector roles
+read-only.
 
 ### PII deletion (right-to-erasure)
 
