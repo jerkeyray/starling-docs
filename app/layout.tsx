@@ -13,7 +13,7 @@ const siteDescription =
   'A Go runtime for LLM agents where every run is recorded as a hash-chained event log. Replayable, auditable, cost-enforceable.';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://jerkeyray.com'),
+  metadataBase: new URL('https://starling.jerkeyray.com'),
   title: {
     default: siteTitle,
     template: '%s · Starling',
