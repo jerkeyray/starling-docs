@@ -171,10 +171,10 @@ function Hero() {
           <InstallCommand />
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
-              href="/why-starling"
+              href="/docs"
               className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-4 py-2 text-sm font-bold text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
             >
-              why starling
+              read the docs
               <ArrowRight className="size-4" />
             </Link>
           </div>
