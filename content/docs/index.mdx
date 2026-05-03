@@ -4,19 +4,22 @@ description: Starling is a Go runtime for building LLM agents where every run is
 icon: House
 ---
 
-import { Rocket, Compass, ScrollText, Plug, Server, Wrench, BookOpen, Hammer, RadioTower, Bot } from 'lucide-react';
+import { Rocket, Compass, ScrollText, Plug, Server, Wrench, BookOpen, Hammer, RadioTower } from 'lucide-react';
 
 A Go runtime for building LLM agents where every run is an append-only,
 BLAKE3-chained, Merkle-rooted event log. When an agent fails in production,
 inspect the log, replay it against the same agent wiring, and see the exact
 step where today's behavior diverges.
 
-<Callout type="info">
-**Coding with an AI assistant?** Paste [For AI agents](/docs/for-agents)
-into your assistant's context once. It is a single self-contained block
-with every type, signature, and anti-pattern verified against the
-source — your assistant writes correct Starling on the first try.
-</Callout>
+## For AI assistants
+
+<div className="my-6 rounded-lg border border-fd-border bg-fd-muted/40 p-6 md:p-8">
+
+[**/llms-full.txt**](/llms-full.txt) packs the whole docs into one file.
+Paste it into your assistant's context and it will know every type,
+signature, and convention in the runtime.
+
+</div>
 
 ## Get started
 
@@ -90,12 +93,6 @@ source — your assistant writes correct Starling on the first try.
 ## Reference
 
 <Cards>
-  <Card
-    icon={<Bot />}
-    title="For AI agents"
-    href="/docs/for-agents"
-    description="The single block to paste into your AI assistant's context."
-  />
   <Card
     icon={<BookOpen />}
     title="API reference"

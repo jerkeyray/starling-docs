@@ -27,7 +27,6 @@ recording.
 - **Quickstart** — hello agent in five minutes.
 - **Build with Starling** — first agent, tools, providers, persistence, budgets.
 - **Replay-driven tests** — capture a run once, assert byte-identity in CI.
-- **For AI agents** — a single self-contained markdown block for Claude/Cursor/etc.
 - **Reference** — per-package types, signatures, examples.
 - **Operations** — deployment, security, retention, metrics, tracing.
 
