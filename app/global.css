@@ -7,6 +7,193 @@ html {
 }
 
 /* -------------------------------------------------- */
+/* palette: true-black + neutral zinc + Go teal       */
+/* -------------------------------------------------- */
+
+.dark {
+  --color-fd-background: #0a0a0a;
+  --color-fd-foreground: #fafafa;
+  --color-fd-card: #131313;
+  --color-fd-card-foreground: #fafafa;
+  --color-fd-popover: #131313;
+  --color-fd-popover-foreground: #fafafa;
+  --color-fd-primary: #22d3ee;
+  --color-fd-primary-foreground: #0a0a0a;
+  --color-fd-secondary: #1c1c1c;
+  --color-fd-secondary-foreground: #fafafa;
+  --color-fd-muted: #1c1c1c;
+  --color-fd-muted-foreground: #a3a3a3;
+  --color-fd-accent: #1c1c1c;
+  --color-fd-accent-foreground: #fafafa;
+  --color-fd-border: #262626;
+  --color-fd-ring: #22d3ee;
+}
+
+:root {
+  --color-fd-primary: #0891b2;
+  --color-fd-ring: #0891b2;
+}
+
+/* -------------------------------------------------- */
+/* callout: drop the left rail                        */
+/* -------------------------------------------------- */
+
+/* Fumadocs Callout renders an inner <div role="none"> as the left
+   color bar. Hide it; pad the container so the icon + text don't
+   shift when the rail is gone. */
+div[style*='--callout-color'] > div[role='none'] {
+  display: none !important;
+}
+div[style*='--callout-color'] {
+  padding-inline-start: 1rem !important;
+}
+
+/* -------------------------------------------------- */
+/* sidebar: blend into the page                       */
+/* -------------------------------------------------- */
+
+/* Fumadocs sidebar is <aside id="nd-sidebar" class="bg-fd-card border-e ...">.
+   Drop the card surface and the border so it shares the page background,
+   and let only its contents (typography, active rail) carry the structure. */
+#nd-sidebar {
+  background: transparent !important;
+  border-inline-end: none !important;
+}
+
+/* -------------------------------------------------- */
+/* docs typography                                    */
+/* -------------------------------------------------- */
+
+/* Sized for reading at typical viewport distance. Fumadocs defaults
+   are slightly tight; lift to 16/1.7 for body, tighten letter spacing
+   on display text. */
+#nd-docs-layout article,
+.fd-prose {
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+#nd-docs-layout article h1,
+.fd-prose h1 {
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+#nd-docs-layout article h2,
+.fd-prose h2 {
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  margin-top: 3rem;
+}
+
+#nd-docs-layout article h3,
+.fd-prose h3 {
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+/* Lede: the description from frontmatter renders directly under the
+   H1. Fumadocs renders it in muted color already; tighten the rhythm. */
+#nd-docs-layout article > p.text-fd-muted-foreground:first-of-type,
+.fd-prose > p:first-of-type {
+  font-size: 17px;
+  line-height: 1.55;
+  margin-top: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+/* Inline code in body prose only. Scoped tightly so it doesn't bleed
+   into the right-side table-of-contents links, sidebar, or callouts. */
+#nd-docs-layout article > :where(p, li, td, th) > code,
+#nd-docs-layout article > :where(p, li, td, th) :not(pre) > code,
+.fd-prose > :where(p, li, td, th) > code,
+.fd-prose > :where(p, li, td, th) :not(pre) > code {
+  font-size: 0.9em;
+  padding: 0.05em 0.3em;
+  background: color-mix(in oklab, var(--color-fd-muted) 50%, transparent);
+  border-radius: 3px;
+}
+
+/* Right-side TOC ("On this page"). Fumadocs renders this as
+   #nd-toc with anchor links carrying data-card. Some entries embed
+   <code> for package names; those must read as plain inline mono,
+   not pills. */
+#nd-toc {
+  font-size: 13px;
+}
+#nd-toc a[data-card] {
+  padding: 5px 12px !important;
+  line-height: 1.4 !important;
+  color: var(--color-fd-muted-foreground) !important;
+  border-left: 1px solid color-mix(in oklab, var(--color-fd-border) 40%, transparent) !important;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+#nd-toc a[data-card]:hover {
+  color: var(--color-fd-foreground) !important;
+}
+#nd-toc a[data-card][data-active='true'] {
+  color: var(--color-fd-foreground) !important;
+  border-left-color: #22d3ee !important;
+  border-left-width: 2px !important;
+  padding-left: 11px !important;
+}
+#nd-toc code {
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 0.95em !important;
+  color: inherit !important;
+  font-weight: inherit !important;
+}
+
+/* Code blocks. Fumadocs renders <figure class="bg-fd-card border
+   shadow-sm rounded-xl shiki ..."> with no data attribute. Target by
+   the .shiki class so the selectors actually hit. Single flat panel,
+   no border, no shadow, no nested wrapper. */
+figure.shiki {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+  background: var(--color-fd-card) !important;
+  margin-block: 1.5rem !important;
+}
+figure.shiki pre {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 0.9rem 1rem !important;
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+  box-shadow: none !important;
+}
+figure.shiki pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  font-size: inherit !important;
+}
+
+/* Tables: lighter rows, sturdier header. */
+#nd-docs-layout article table,
+.fd-prose table {
+  font-size: 14px;
+}
+#nd-docs-layout article th,
+.fd-prose th {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* Active sidebar item: stronger text color and weight. No rail. */
+aside a[data-active='true'],
+aside [aria-current='page'],
+[role='navigation'] a[data-active='true'] {
+  color: var(--color-fd-foreground) !important;
+  font-weight: 600;
+}
+
+/* -------------------------------------------------- */
 /* landing animations                                 */
 /* -------------------------------------------------- */
 
@@ -78,24 +265,12 @@ html {
   }
 }
 
-/* "diverge" word in hero copy */
+/* "diverge" word in hero copy: emphasized, no chrome. */
 .diverge {
-  position: relative;
-  background: rgba(244, 63, 94, 0.18);
-  color: #fda4af;
-  padding: 1px 8px;
-  font-weight: 800;
-  border-left: 2px solid #f43f5e;
-  border-right: 2px solid #f43f5e;
-}
-.diverge::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -4px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #f43f5e, transparent);
+  color: var(--color-fd-foreground);
+  font-weight: 700;
+  border-bottom: 2px solid #22d3ee;
+  padding-bottom: 1px;
 }
 @keyframes glitchBar {
   0% {
@@ -193,6 +368,21 @@ html {
   background: rgba(244, 244, 245, 0.3);
 }
 
+/* hero scroll cue: subtle bob on the chevron, no movement on the label */
+.hero-scroll-cue svg {
+  animation: scrollCueBob 2.4s ease-in-out infinite;
+}
+@keyframes scrollCueBob {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(3px);
+    opacity: 1;
+  }
+}
+
 /* respect reduced-motion: skip the one-shot reveal too */
 @media (prefers-reduced-motion: reduce) {
   .reveal {
@@ -201,6 +391,9 @@ html {
     transition: none;
   }
   .hl-bar {
+    animation: none;
+  }
+  .hero-scroll-cue svg {
     animation: none;
   }
 }
@@ -233,52 +426,11 @@ html > body[data-scroll-locked] {
 #nd-nav a[href='/docs'],
 #nd-nav a[href^='https://github.com/'] {
   position: relative;
-  padding-block: 0.625rem !important;
-  padding-inline: 1.25rem !important;
+  padding-block: 0.5rem !important;
+  padding-inline: 0.875rem !important;
   border-radius: 0.375rem;
   font-weight: 600;
   transition: background 0.15s ease, color 0.15s ease;
-}
-
-/* Square-bracket frame on hover, terminal-style. */
-#nd-nav a[href='/why-starling']::before,
-#nd-nav a[href='/docs']::before,
-#nd-nav a[href^='https://github.com/']::before,
-#nd-nav a[href='/why-starling']::after,
-#nd-nav a[href='/docs']::after,
-#nd-nav a[href^='https://github.com/']::after {
-  content: '';
-  position: absolute;
-  top: 0.35rem;
-  bottom: 0.35rem;
-  width: 0.4rem;
-  border: 1.5px solid currentColor;
-  opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  pointer-events: none;
-}
-
-/* GitHub link: brackets are always visible, just brighten on hover. */
-#nd-nav a[href^='https://github.com/']::before,
-#nd-nav a[href^='https://github.com/']::after {
-  opacity: 0.5;
-  transform: translateX(0);
-}
-
-#nd-nav a[href='/why-starling']::before,
-#nd-nav a[href='/docs']::before,
-#nd-nav a[href^='https://github.com/']::before {
-  left: 0.25rem;
-  border-right: 0;
-  transform: translateX(2px);
-}
-
-#nd-nav a[href='/why-starling']::after,
-#nd-nav a[href='/docs']::after,
-#nd-nav a[href^='https://github.com/']::after {
-  right: 0.25rem;
-  border-left: 0;
-  transform: translateX(-2px);
 }
 
 #nd-nav a[href='/why-starling']:hover,
@@ -286,14 +438,4 @@ html > body[data-scroll-locked] {
 #nd-nav a[href^='https://github.com/']:hover {
   background: color-mix(in oklab, var(--color-fd-foreground) 8%, transparent);
   color: var(--color-fd-foreground);
-}
-
-#nd-nav a[href='/why-starling']:hover::before,
-#nd-nav a[href='/why-starling']:hover::after,
-#nd-nav a[href='/docs']:hover::before,
-#nd-nav a[href='/docs']:hover::after,
-#nd-nav a[href^='https://github.com/']:hover::before,
-#nd-nav a[href^='https://github.com/']:hover::after {
-  opacity: 0.8;
-  transform: translateX(0);
 }

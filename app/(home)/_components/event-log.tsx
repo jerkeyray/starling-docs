@@ -160,7 +160,7 @@ export function EventLog({ timeline }: { timeline: EventTimelineItem[] }) {
 
   return (
     <div className="log-wrap relative">
-      <div className="log-shadow pointer-events-none absolute inset-0 bg-emerald-500" />
+      <div className="log-shadow pointer-events-none absolute inset-0 bg-fd-foreground" />
       <div className="log relative border-2 border-fd-foreground bg-fd-background">
         <div className="flex items-center justify-between gap-2 border-b-2 border-fd-foreground bg-fd-foreground/5 px-3 py-2 sm:px-4 sm:py-2.5">
           <span className="truncate font-mono text-[10px] font-bold tracking-wide text-fd-muted-foreground sm:text-[11px]">

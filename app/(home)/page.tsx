@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import {
   ArrowRight,
+  BookOpen,
   Boxes,
+  ChevronDown,
   CircuitBoard,
+  Coffee,
   Plug,
   Rewind,
   ShieldCheck,
@@ -11,6 +14,7 @@ import {
 import { author, gitConfig } from '@/lib/shared';
 import { Reveal } from './_components/reveal';
 import { EventLog, type EventTimelineItem } from './_components/event-log';
+import { InstallCommand } from './_components/install-command';
 import { MerkleViz } from './_components/merkle-viz';
 import { ProvidersMarquee } from './_components/providers-marquee';
 
@@ -27,33 +31,33 @@ function GithubMark({ className = 'size-4' }: { className?: string }) {
 const features: Array<{ icon: typeof Rewind; title: string; body: string }> = [
   {
     icon: Rewind,
-    title: 'Replayable runs',
-    body: 'Every run is a hash-chained event log. Replay byte-for-byte against the same agent wiring; divergence is a typed error.',
+    title: 'Replay any past run',
+    body: 'Re-run a recorded run against your current code. The first step that behaves differently shows up as a test failure.',
   },
   {
     icon: ShieldCheck,
-    title: 'Tamper-evident',
-    body: 'BLAKE3 chain plus a Merkle root in the terminal event. Mutate any prior event and validation fails.',
+    title: 'Audit-grade history',
+    body: 'Each run is hash-signed end to end. If anyone edits a past event, validation breaks and you know.',
   },
   {
     icon: CircuitBoard,
-    title: 'Provider-neutral',
-    body: 'OpenAI-compatible, Anthropic, Gemini, Amazon Bedrock, OpenRouter. Adapters share a conformance suite.',
+    title: 'Use any model',
+    body: 'OpenAI, Anthropic, Gemini, Bedrock, OpenRouter, and any OpenAI-compatible endpoint. Swap models without touching agent code.',
   },
   {
     icon: Plug,
-    title: 'MCP-ready',
-    body: 'Mount remote MCP server tools as ordinary Starling tools. Calls route through step.SideEffect.',
+    title: 'Tools and MCP',
+    body: 'Write tools as plain Go functions, or mount any MCP server. Both behave the same in live runs and in replay.',
   },
   {
     icon: Wallet,
-    title: 'Cost control',
-    body: 'Token, USD, and wall-clock budgets enforced inside the runtime, not observed after the fact.',
+    title: 'Hard cost limits',
+    body: "Cap tokens, dollars, and wall-clock per run. The runtime stops when a cap trips - not after the bill arrives.",
   },
   {
     icon: Boxes,
-    title: 'Operator-shaped',
-    body: 'Migrations, durable Postgres + SQLite, structured slog, Prometheus metrics, an inspector UI.',
+    title: 'Production basics, included',
+    body: 'Postgres or SQLite storage, schema migrations, Prometheus metrics, structured logs, and a built-in web inspector.',
   },
 ];
 
@@ -80,9 +84,47 @@ const hardShadowSm =
 const dotGrid =
   'bg-[radial-gradient(currentColor_1px,transparent_1px)] [background-size:18px_18px] text-fd-foreground/[0.06]';
 
+const homeJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Starling',
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Linux, macOS, Windows',
+      programmingLanguage: 'Go',
+      description:
+        'A Go runtime for LLM agents where every run is recorded as a hash-chained event log. Replayable, auditable, and budget-bounded.',
+      url: 'https://starling.jerkeyray.com',
+      codeRepository: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
+      license: 'https://opensource.org/licenses/MIT',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      author: {
+        '@type': 'Person',
+        name: 'aditya srivastava',
+        url: 'https://jerkeyray.com',
+      },
+    },
+    {
+      '@type': 'WebSite',
+      name: 'Starling',
+      url: 'https://starling.jerkeyray.com',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: 'https://starling.jerkeyray.com/docs?q={search_term_string}',
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+};
+
 export default function HomePage() {
   return (
     <main className="flex flex-1 flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd) }}
+      />
       <Hero />
       <FeatureGrid />
       <RunFlow />
@@ -96,56 +138,44 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative flex items-center overflow-hidden border-b border-fd-foreground/15 lg:min-h-[calc(100svh-56px)]">
+    <section className="relative flex items-center overflow-hidden border-b border-fd-foreground/15 lg:min-h-[calc(85svh-56px)]">
       <div className={`pointer-events-none absolute inset-0 dot-drift ${dotGrid}`} />
       {/* subtle accent stripes */}
       <div className="stripe" aria-hidden />
       <div className="stripe stripe-2" aria-hidden />
 
+      <a
+        href="#what-you-get"
+        aria-label="Scroll to features"
+        className="hero-scroll-cue absolute bottom-5 left-1/2 z-10 hidden -translate-x-1/2 items-center justify-center text-fd-muted-foreground transition hover:text-fd-foreground sm:bottom-7 lg:flex"
+      >
+        <ChevronDown className="size-5" aria-hidden />
+      </a>
+
       <div className="relative mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-12 lg:py-20">
         <div>
-          <span
-            className={`mb-5 inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-3 py-1 text-[11px] font-bold tracking-wide text-fd-foreground sm:mb-7 sm:text-xs ${hardShadowSm}`}
-          >
-            <span className="pulse-dot" aria-hidden />
-            <span>pre-release · go 1.26+</span>
-          </span>
-          <h1 className="mb-5 text-balance text-4xl font-black leading-[1.05] tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
+          <h1 className="mb-5 text-4xl font-black leading-[1.05] tracking-tight sm:mb-6 sm:text-5xl md:text-6xl lg:text-7xl">
             event-sourced
             <br />
             agent runtime
             <br />
-            for{' '}
+            in{' '}
             <span className="relative inline-block text-cyan-500">
-              go
+              Go
               <span className="hl-bar absolute -bottom-1 left-0 right-0 h-[5px] bg-cyan-500" />
             </span>
-            .
           </h1>
-          <p className="mb-7 max-w-xl text-balance text-base leading-relaxed text-fd-muted-foreground sm:mb-9 sm:text-lg">
-            Every run is replayable, auditable, and cost-enforceable. When an
-            agent fails in production, replay the log and see the exact step
-            today&apos;s behavior <span className="diverge">diverges</span>.
+          <p className="mb-7 max-w-xl text-balance text-base leading-relaxed text-fd-muted-foreground sm:mb-8 sm:text-lg">
+            replay past runs. resume crashed ones. stop runaway costs.
           </p>
+          <InstallCommand />
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
-              href="/docs/quickstart"
+              href="/why-starling"
               className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-cyan-500 px-4 py-2 text-sm font-bold text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
             >
-              quickstart
-              <ArrowRight className="size-4" />
-            </Link>
-            <Link
-              href="/why-starling"
-              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-emerald-500 px-4 py-2 text-sm font-bold text-white transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
-            >
               why starling
-            </Link>
-            <Link
-              href="/docs"
-              className={`inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none sm:px-5 sm:py-2.5 sm:text-base ${hardShadow}`}
-            >
-              docs
+              <ArrowRight className="size-4" />
             </Link>
           </div>
         </div>
@@ -168,7 +198,7 @@ function Providers() {
         <p className="mx-auto mt-5 max-w-2xl text-center text-[12.5px] leading-relaxed text-fd-muted-foreground/80 sm:mt-6">
           OpenAI-compatible endpoints (Groq, Together, Ollama, vLLM, LM Studio,
           Azure OpenAI, …) plug in via{' '}
-          <code className="border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono">
+          <code className="font-mono text-fd-foreground">
             openai.WithBaseURL
           </code>
           .
@@ -180,28 +210,21 @@ function Providers() {
 
 function FeatureGrid() {
   return (
-    <section className="border-b border-fd-foreground/15 px-5 py-10 sm:px-6 sm:py-14 lg:py-16">
+    <section id="what-you-get" className="scroll-mt-16 border-b border-fd-foreground/15 px-5 py-10 sm:px-6 sm:py-14 lg:py-16">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-7 flex flex-col gap-4 sm:mb-10 lg:flex-row lg:items-end lg:justify-between lg:gap-10">
+        <div className="mb-7 sm:mb-10">
           <Reveal className="max-w-2xl">
             <span className="mb-3 inline-block border-2 border-fd-foreground bg-cyan-500 px-3 py-1 text-[11px] font-bold tracking-wide text-white sm:text-xs">
               what you get
             </span>
             <h2 className="mb-2 text-2xl font-black leading-[1.1] tracking-tight sm:text-3xl md:text-4xl">
-              a go runtime built around the log as source of truth.
+              what you get without writing it yourself.
             </h2>
             <p className="text-sm text-fd-muted-foreground">
-              Production-shaped from the start. Nothing about the design
-              optimizes for demos.
+              Replay, audit, multi-provider, MCP, budgets, and operator
+              tooling - all in the box, with one Go import.
             </p>
           </Reveal>
-          <Link
-            href="/why-starling"
-            className={`shrink-0 self-start inline-flex items-center gap-2 border-2 border-fd-foreground bg-fd-background px-4 py-2 text-sm font-bold transition hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${hardShadowSm}`}
-          >
-            see all features
-            <ArrowRight className="size-4" />
-          </Link>
         </div>
         <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {features.map(({ icon: Icon, title, body }, i) => (
@@ -238,36 +261,36 @@ function RunFlow() {
       n: '01',
       accent: 'cyan',
       title: 'define',
-      body: 'wire an Agent: Provider, Log, Tools, Config, Budget. no state, just dependencies.',
-      eventHints: ['Agent{}', 'Config{Model, MaxTurns}'],
+      body: 'Wire up the agent. Pick a model, give it tools, set a budget. No I/O yet.',
+      eventHints: ['model', 'tools', 'budget'],
     },
     {
       n: '02',
-      accent: 'emerald',
+      accent: 'cyan',
       title: 'run',
-      body: 'call Agent.Run(ctx, goal). the runtime mints a fresh ULID, pins the model + system prompt + tools into RunStarted.',
-      eventHints: ['RunStarted', 'model · prompt hash'],
+      body: 'Call Run with a goal. The runtime mints a run id and starts recording from the first byte.',
+      eventHints: ['fresh run id', 'recording started'],
     },
     {
       n: '03',
       accent: 'cyan',
       title: 'loop',
-      body: 'each turn streams from the provider, executes any planned tools, and commits the assistant message. side effects go through step.* so replay can reproduce them.',
-      eventHints: ['TurnStarted', 'AssistantMessageCompleted', 'ToolCallCompleted'],
+      body: 'The model thinks, calls tools, reads the results, thinks again. Every step lands in the recording as it happens.',
+      eventHints: ['turns', 'tool calls', 'tokens'],
     },
     {
       n: '04',
-      accent: 'emerald',
+      accent: 'cyan',
       title: 'finish',
-      body: 'the terminal event commits a merkle root over every prior event. the chain is signable; the run is auditable.',
-      eventHints: ['RunCompleted', 'MerkleRoot'],
+      body: 'When the run ends, the recording is sealed and signed. You can prove later that nothing was edited.',
+      eventHints: ['final answer', 'signed history'],
     },
     {
       n: '05',
       accent: 'cyan',
       title: 'replay',
-      body: 'starling.Replay re-executes the recording byte-for-byte. the first event that does not match surfaces as a typed Divergence.',
-      eventHints: ['starling.Replay', 'replay.Divergence'],
+      body: 'Re-run the recording against your current code. Any difference shows up as a typed error pointing at the exact step.',
+      eventHints: ['same wiring', 'diff at exact step'],
     },
   ];
 
@@ -279,13 +302,13 @@ function RunFlow() {
             how a run flows
           </span>
           <h2 className="mb-3 text-3xl font-black leading-[1.1] tracking-tight sm:text-4xl md:text-5xl">
-            five phases.
+            five phases,
             <br className="hidden sm:inline" />{' '}
-            every one ends in an event.
+            start to finish.
           </h2>
           <p className="text-sm text-fd-muted-foreground sm:text-base">
-            from the goal you pass in to the merkle-rooted terminal event,
-            every meaningful state change is recorded in order.
+            From a goal in to a verified answer out - every step recorded
+            in order, replayable later.
           </p>
         </Reveal>
 
@@ -315,7 +338,7 @@ function RunFlow() {
                     {s.eventHints.map((h) => (
                       <span
                         key={h}
-                        className="inline-block border border-fd-foreground/30 bg-fd-foreground/[0.04] px-1.5 py-0.5 font-mono text-[10px] font-medium text-fd-muted-foreground"
+                        className="inline-block font-mono text-[11px] font-medium text-fd-muted-foreground"
                       >
                         {h}
                       </span>
@@ -366,7 +389,7 @@ function HowItWorks() {
           <p className="mb-4 text-sm text-fd-muted-foreground sm:text-base">
             Every event is hash-chained on append. The terminal event commits a
             Merkle root over all priors. Mutate any prior event and{' '}
-            <code className="whitespace-nowrap border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
+            <code className="whitespace-nowrap font-mono text-[12.5px] text-fd-foreground sm:text-[13.5px]">
               eventlog.Validate
             </code>{' '}
             fails.
@@ -374,7 +397,7 @@ function HowItWorks() {
           <p className="text-sm text-fd-muted-foreground sm:text-base">
             Replay re-executes the agent against the same wiring. The first event
             that does not byte-match surfaces as a typed{' '}
-            <code className="whitespace-nowrap border border-fd-foreground bg-fd-background px-1.5 py-0.5 font-mono text-[11.5px] sm:text-[12.5px]">
+            <code className="whitespace-nowrap font-mono text-[12.5px] text-fd-foreground sm:text-[13.5px]">
               replay.Divergence
             </code>{' '}
             carrying seq, kind, expected kind, class, and reason.
@@ -430,13 +453,13 @@ function OpenSource() {
 }
 
 function Footer() {
+  const linkCls =
+    'inline-flex items-center gap-2 font-bold text-fd-muted-foreground transition hover:text-fd-foreground';
   return (
-    <footer className="border-t border-fd-foreground/15 bg-fd-background px-5 py-8 sm:px-6 sm:py-10">
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 text-xs text-fd-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+    <footer className="border-t border-fd-foreground/15 bg-fd-background px-5 py-10 sm:px-6 sm:py-12">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 text-sm text-fd-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span>© {new Date().getFullYear()} starling contributors.</span>
-          <span className="hidden text-fd-muted-foreground/50 sm:inline">·</span>
-          <span className="basis-full sm:basis-auto">
+          <span>
             built by{' '}
             <Link
               href={author.github}
@@ -458,15 +481,15 @@ function Footer() {
             ) : null}
           </span>
         </div>
-        <div className="flex items-center gap-4 sm:gap-5">
-          <Link href="/docs" className="font-bold hover:text-fd-foreground">
-            docs
-          </Link>
-          <Link href="/docs/reference" className="font-bold hover:text-fd-foreground">
-            reference
-          </Link>
-          <Link href={repoURL} className="font-bold hover:text-fd-foreground">
-            github
+        <div className="flex items-center gap-5 sm:gap-6">
+          <Link
+            href="https://buymeacoffee.com/jerkeyray"
+            className={linkCls}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Coffee className="size-4" aria-hidden />
+            support the project
           </Link>
         </div>
       </div>

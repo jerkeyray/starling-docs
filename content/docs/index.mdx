@@ -4,67 +4,57 @@ description: Starling is a Go runtime for building LLM agents where every run is
 icon: House
 ---
 
-import { Rocket, Compass, ScrollText, Plug, Server, Wrench, BookOpen, Hammer, RadioTower } from 'lucide-react';
+import { Rocket, Compass, ScrollText, Plug, Server, Wrench, BookOpen, Hammer, RadioTower, Bot } from 'lucide-react';
 
 A Go runtime for building LLM agents where every run is an append-only,
 BLAKE3-chained, Merkle-rooted event log. When an agent fails in production,
 inspect the log, replay it against the same agent wiring, and see the exact
 step where today's behavior diverges.
 
+<Callout type="info">
+**Coding with an AI assistant?** Paste [For AI agents](/docs/for-agents)
+into your assistant's context once. It is a single self-contained block
+with every type, signature, and anti-pattern verified against the
+source — your assistant writes correct Starling on the first try.
+</Callout>
+
 ## Get started
 
 <Cards>
   <Card
-    icon={<Rocket className="text-cyan-500" />}
+    icon={<Rocket />}
     title="Quickstart"
     href="/docs/quickstart"
     description="Hello agent. In-memory log, durable SQLite, replay verification."
   />
   <Card
-    icon={<Compass className="text-emerald-500" />}
+    icon={<Compass />}
     title="Concepts"
     href="/docs/concepts"
     description="Event log, replay, side effects, the determinism contract."
   />
 </Cards>
 
-## Build with Starling
+## Build
 
 <Cards>
   <Card
-    icon={<Hammer className="text-cyan-500" />}
+    icon={<Hammer />}
     title="Build your first agent"
     href="/docs/build/agent"
     description="Wire Provider, Log, Tools, Config, Budget, Metrics."
   />
   <Card
-    icon={<Hammer className="text-emerald-500" />}
+    icon={<Hammer />}
     title="Write a tool"
     href="/docs/build/tools"
     description="Typed tools, replay-safe side effects, retries on transient errors."
   />
   <Card
-    icon={<Hammer className="text-cyan-500" />}
+    icon={<Hammer />}
     title="Replay-driven tests"
     href="/docs/replay-tests"
     description="Capture a run once. Assert byte-identity in CI forever."
-  />
-</Cards>
-
-## Reference
-
-<Cards>
-  <Card
-    icon={<ScrollText className="text-cyan-500" />}
-    title="Event schema"
-    href="/docs/events"
-    description="Event kinds, payloads, the canonical CBOR wire format, invariants."
-  />
-  <Card
-    icon={<BookOpen className="text-emerald-500" />}
-    title="API reference"
-    href="/docs/reference"
-    description="Per-package types, signatures, and short examples."
   />
 </Cards>
 
@@ -72,27 +62,50 @@ step where today's behavior diverges.
 
 <Cards>
   <Card
-    icon={<Plug className="text-cyan-500" />}
-    title="MCP tools (outbound)"
-    href="/docs/mcp-tools"
-    description="Mount remote MCP servers as Starling tools. stdio + streamable HTTP."
-  />
-  <Card
-    icon={<Server className="text-emerald-500" />}
-    title="MCP server (inbound)"
-    href="/docs/mcp-server"
-    description="Expose your event log to Claude Desktop, Cursor, Claude Code. Read-only stdio."
-  />
-  <Card
-    icon={<RadioTower className="text-cyan-500" />}
+    icon={<RadioTower />}
     title="HTTP daemon"
     href="/docs/starlingd"
-    description="Serve your own agent over HTTP with async runs, SSE, metrics, auth, and inspector."
+    description="Serve your own agent over HTTP. Async runs, SSE, metrics, auth, inspector."
   />
   <Card
-    icon={<Wrench className="text-cyan-500" />}
+    icon={<Server />}
+    title="MCP server"
+    href="/docs/mcp-server"
+    description="Expose your event log to Claude Desktop, Cursor, Claude Code over stdio."
+  />
+  <Card
+    icon={<Plug />}
+    title="MCP tools"
+    href="/docs/mcp-tools"
+    description="Mount remote MCP servers as Starling tools."
+  />
+  <Card
+    icon={<Wrench />}
     title="Operations"
     href="/docs/operations"
     description="Deployment, security, retention, metrics, tracing."
+  />
+</Cards>
+
+## Reference
+
+<Cards>
+  <Card
+    icon={<Bot />}
+    title="For AI agents"
+    href="/docs/for-agents"
+    description="The single block to paste into your AI assistant's context."
+  />
+  <Card
+    icon={<BookOpen />}
+    title="API reference"
+    href="/docs/reference"
+    description="Per-package types, signatures, and short examples."
+  />
+  <Card
+    icon={<ScrollText />}
+    title="Event schema"
+    href="/docs/events"
+    description="Event kinds, payloads, the canonical CBOR wire format, invariants."
   />
 </Cards>

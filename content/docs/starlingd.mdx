@@ -72,7 +72,7 @@ STARLINGD_TOKEN=secret my-agent serve --addr 127.0.0.1:8080 starling.db
 ## HTTP API
 
 All endpoints require `Authorization: Bearer <token>` when auth is
-configured.
+configured, including `/metrics` and `/inspect/`.
 
 | Method | Path | Meaning |
 | --- | --- | --- |
@@ -102,6 +102,15 @@ curl -N -H "Authorization: Bearer secret" \
 The stream emits SSE events named `status`, `event`, `done`, and
 `error`. `event` payloads include `seq`, `kind`, `timestamp`, hash
 fields, and the decoded event payload.
+
+The `/events` endpoint pages at the event-log backend when supported.
+Default `limit` is 200 and the maximum accepted limit is 1000; use
+`offset` to walk long runs without loading the whole event stream.
+
+`daemon_status` is best-effort process memory for recently queued,
+running, or terminal jobs. It is retained for `--job-retention`, then
+discarded. Use the log-derived `status` field as the authoritative run
+state.
 
 ## Programmatic server
 
@@ -138,6 +147,10 @@ When using `starlingd.Command`, the run log is opened writable and the
 inspector is mounted with a separate SQLite `eventlog.WithReadOnly()`
 handle. When using `starlingd.New` directly, pass `InspectorLog` if
 you want that same hard guard; otherwise the inspector uses `Log`.
+
+`starlingd.Command` does not expose inspector replay wiring. If your
+dual-mode binary needs inspector replay, construct the server with
+`starlingd.New` and pass `Config.ReplayFactory`.
 
 ## Production notes
 

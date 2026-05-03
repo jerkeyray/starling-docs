@@ -11,57 +11,74 @@ function detectDark(): boolean {
   return document.documentElement.classList.contains('dark');
 }
 
-// Brand-matched palette. Keep these the same across the site so the
-// Mermaid output reads as part of the page, not a third-party widget.
+// Technical-drawing palette: outline-only shapes, transparent fills,
+// one muted color across every shape including cylinders. Reads as a
+// hand-drawn diagram, not a PowerPoint org chart.
 const palette = {
   light: {
-    bg: '#ffffff',
-    nodeBg: '#f8fafc',
-    nodeStroke: '#cbd5e1',
+    bg: 'transparent',
+    nodeBg: 'transparent',
+    nodeStroke: '#94a3b8',
     nodeText: '#0f172a',
     edge: '#94a3b8',
-    accent: '#06b6d4', // cyan
-    accentSoft: '#cffafe',
-    success: '#10b981', // emerald
-    successSoft: '#d1fae5',
-    danger: '#f43f5e', // rose
+    accent: '#06b6d4',
+    accentSoft: 'transparent',
+    success: '#10b981',
+    successSoft: 'transparent',
+    danger: '#f43f5e',
   },
   dark: {
     bg: 'transparent',
-    nodeBg: '#1e293b',
-    nodeStroke: '#475569',
-    nodeText: '#e2e8f0',
-    edge: '#64748b',
+    nodeBg: 'transparent',
+    nodeStroke: '#52525b',
+    nodeText: '#e4e4e7',
+    edge: '#71717a',
     accent: '#22d3ee',
-    accentSoft: '#155e75',
+    accentSoft: 'transparent',
     success: '#34d399',
-    successSoft: '#065f46',
+    successSoft: 'transparent',
     danger: '#fb7185',
   },
 };
 
 const themeCSS = (p: typeof palette.light) => `
-  .node rect, .node polygon, .node circle, .node ellipse, .node path {
-    stroke-width: 1.2px;
-    filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.08));
+  /* Uniform outline-only shapes. Transparent fills, hairline strokes,
+     no shadow, no rounded fills. Cylinders, rects, diamonds all match. */
+  .node rect, .node polygon, .node circle, .node ellipse, .node path,
+  .node .basic.label-container {
+    stroke: ${p.nodeStroke} !important;
+    stroke-width: 1px !important;
+    fill: transparent !important;
+    filter: none !important;
+    rx: 4px;
+    ry: 4px;
   }
   .node .label, .nodeLabel, .edgeLabel {
     font-family: var(--font-inter, ui-sans-serif, system-ui, sans-serif) !important;
-    font-size: 13px !important;
+    font-size: 12.5px !important;
     font-weight: 500 !important;
     color: ${p.nodeText} !important;
     fill: ${p.nodeText} !important;
   }
-  .edgeLabel {
-    background-color: ${p.bg === 'transparent' ? '#0b1220' : '#ffffff'} !important;
-    padding: 0 4px !important;
-    border-radius: 4px !important;
+  /* htmlLabels=true renders edge labels inside foreignObject as
+     <span class="edgeLabel"><p>...</p></span>. Reach into all three
+     so the bright default fills don't survive. */
+  .edgeLabel,
+  .edgeLabel span,
+  .edgeLabel p,
+  .edgeLabel foreignObject div {
+    background: transparent !important;
+    background-color: transparent !important;
+    padding: 0 6px !important;
     font-size: 11.5px !important;
+    font-weight: 500 !important;
     color: ${p.edge} !important;
+    fill: ${p.edge} !important;
   }
-  .edgeLabel rect { fill: ${p.bg === 'transparent' ? '#0b1220' : '#ffffff'}; }
+  .edgeLabel rect { fill: transparent !important; }
+  .edgeLabel-container { background: transparent !important; }
   .edgePath .path {
-    stroke-width: 1.4px !important;
+    stroke-width: 1px !important;
     stroke: ${p.edge} !important;
   }
   .edgePath marker path, .marker path {
@@ -70,9 +87,11 @@ const themeCSS = (p: typeof palette.light) => `
   }
   .cluster rect {
     stroke: ${p.nodeStroke} !important;
-    stroke-dasharray: 4 3;
+    stroke-width: 1px !important;
+    stroke-dasharray: 3 3;
     fill: transparent !important;
-    rx: 10px; ry: 10px;
+    rx: 4px; ry: 4px;
+    opacity: 0.6;
   }
   .cluster .nodeLabel, .cluster-label .nodeLabel {
     font-size: 11px !important;
@@ -142,39 +161,39 @@ export function Mermaid({ chart }: MermaidProps) {
         fontFamily: 'inherit',
         themeCSS: themeCSS(p),
         themeVariables: {
-          background: p.bg,
-          primaryColor: p.accentSoft,
-          primaryBorderColor: p.accent,
+          background: 'transparent',
+          primaryColor: 'transparent',
+          primaryBorderColor: p.nodeStroke,
           primaryTextColor: p.nodeText,
-          secondaryColor: p.successSoft,
-          secondaryBorderColor: p.success,
-          tertiaryColor: p.nodeBg,
+          secondaryColor: 'transparent',
+          secondaryBorderColor: p.nodeStroke,
+          tertiaryColor: 'transparent',
           tertiaryBorderColor: p.nodeStroke,
           lineColor: p.edge,
           textColor: p.nodeText,
-          mainBkg: p.nodeBg,
+          mainBkg: 'transparent',
           nodeBorder: p.nodeStroke,
           clusterBkg: 'transparent',
           clusterBorder: p.nodeStroke,
           // sequence diagram
-          actorBkg: p.nodeBg,
+          actorBkg: 'transparent',
           actorBorder: p.nodeStroke,
           actorTextColor: p.nodeText,
           actorLineColor: p.edge,
           signalColor: p.nodeText,
           signalTextColor: p.nodeText,
-          labelBoxBkgColor: p.accentSoft,
-          labelBoxBorderColor: p.accent,
+          labelBoxBkgColor: 'transparent',
+          labelBoxBorderColor: p.nodeStroke,
           labelTextColor: p.nodeText,
           loopTextColor: p.nodeText,
-          noteBkgColor: p.successSoft,
-          noteBorderColor: p.success,
+          noteBkgColor: 'transparent',
+          noteBorderColor: p.nodeStroke,
         },
         flowchart: {
           curve: 'basis',
-          padding: 18,
-          nodeSpacing: 36,
-          rankSpacing: 48,
+          padding: 14,
+          nodeSpacing: 40,
+          rankSpacing: 56,
           htmlLabels: true,
           useMaxWidth: true,
         },
@@ -206,7 +225,7 @@ export function Mermaid({ chart }: MermaidProps) {
     );
   }
   return (
-    <div className="not-prose my-6 overflow-hidden rounded-xl border border-fd-border bg-gradient-to-br from-fd-background to-fd-muted/20 p-6">
+    <div className="not-prose my-8">
       <div
         className="flex justify-center overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
         dangerouslySetInnerHTML={{ __html: svg }}

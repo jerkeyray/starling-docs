@@ -132,7 +132,9 @@ Three layers of defence:
 - **`get_run` event cap.** A single run can have thousands of
   events with long assistant text. Default cap is 200 events per
   call; the response includes `truncated: true` and a
-  `total_events` count so the model knows to page.
+  `total_events` count so the model knows to page. Built-in log
+  backends page events in storage; custom logs fall back to `Read`
+  plus in-memory slicing.
 - **No streaming.** MCP tools are request/response. To watch a run
   unfold turn-by-turn, use the [inspector](/docs/inspector) - its
   SSE timeline is the right surface for that.

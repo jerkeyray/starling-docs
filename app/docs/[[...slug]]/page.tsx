@@ -11,6 +11,8 @@ import { getMDXComponents } from '@/components/mdx';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
 
+const baseUrl = 'https://starling.jerkeyray.com';
+
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
   const page = source.getPage(params.slug);
@@ -18,9 +20,38 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
 
   const MDX = page.data.body;
   const markdownUrl = getPageMarkdownUrl(page).url;
+  const image = getPageImage(page).url;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: page.data.title,
+    description: page.data.description,
+    url: `${baseUrl}${page.url}`,
+    image: `${baseUrl}${image}`,
+    inLanguage: 'en',
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Starling',
+      url: baseUrl,
+    },
+    author: {
+      '@type': 'Person',
+      name: 'aditya srivastava',
+      url: 'https://jerkeyray.com',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Starling',
+      url: baseUrl,
+    },
+  };
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <DocsTitle>{page.data.title}</DocsTitle>
